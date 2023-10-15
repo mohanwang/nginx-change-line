@@ -1,70 +1,20 @@
 
-# Copyright (C) Igor Sysoev
+# Copyright (C) Nginx, Inc.
 
 
-case $USE_THREADS in
-    rfork)
-        have=NGX_THREADS . auto/have
-        have=NGX_USE_RFORK . auto/have
-        CORE_DEPS="$CORE_DEPS $FREEBSD_RFORK_DEPS"
-        CORE_SRCS="$CORE_SRCS $FREEBSD_RFORK_SRCS"
+if [ $USE_THREADS = YES ]; then
 
-        case "$NGX_PLATFORM" in
-            *:i386)
-                if [ \( $version -gt 500000 -a $version -lt 501000 \) \
-                     -o $version -lt 491000 ]
-                then
-                    CORE_SRCS="$CORE_SRCS $FREEBSD_RFORK_THREAD_SRCS"
-                fi
-            ;;
-        esac
-    ;;
+    if [ "$NGX_PLATFORM" = win32 ]; then
+        cat << END
 
-    pthreads)
-        have=NGX_THREADS . auto/have
-        CORE_SRCS="$CORE_SRCS $PTHREAD_SRCS"
-        CORE_LIBS="$CORE_LIBS -lpthread"
-    ;;
+$0: --with-threads is not supported on Windows
 
-    libthr)
-        have=NGX_THREADS . auto/have
-        CORE_SRCS="$CORE_SRCS $PTHREAD_SRCS"
-        CORE_LIBS="$CORE_LIBS -lthr"
-    ;;
+END
+        exit 1
+    fi
 
-    linuxthreads)
-        have=NGX_THREADS . auto/have
-        have=NGX_LINUXTHREADS . auto/have
-        CFLAGS="$CFLAGS -D_THREAD_SAFE"
-        CFLAGS="$CFLAGS -I /usr/local/include/pthread/linuxthreads"
-        CORE_SRCS="$CORE_SRCS $PTHREAD_SRCS"
-        CORE_LIBS="$CORE_LIBS -L /usr/local/lib -llthread -llgcc_r"
-    ;;
-
-    libc_r)
-        case "$NGX_PLATFORM" in
-            FreeBSD:[34]*)
-                have=NGX_THREADS . auto/have
-                CFLAGS="$CFLAGS -pthread"
-                CORE_SRCS="$CORE_SRCS $PTHREAD_SRCS"
-                CORE_LIBS="$CORE_LIBS -pthread"
-            ;;
-
-            FreeBSD:[56]*)
-                have=NGX_THREADS . auto/have
-                CORE_SRCS="$CORE_SRCS $PTHREAD_SRCS"
-                CORE_LIBS="$CORE_LIBS -lc_r"
-            ;;
-        esac
-    ;;
-
-    NO)
-    ;;
-
-    *)
-        have=NGX_THREADS . auto/have
-        CORE_SRCS="$CORE_SRCS $PTHREAD_SRCS"
-        CORE_LIBS="$CORE_LIBS -l$USE_THREADS"
-    ;;
-
-esac
+    have=NGX_THREADS . auto/have
+    CORE_DEPS="$CORE_DEPS $THREAD_POOL_DEPS"
+    CORE_SRCS="$CORE_SRCS $THREAD_POOL_SRCS"
+    CORE_LIBS="$CORE_LIBS -lpthread"
+fi
