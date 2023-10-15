@@ -1,4 +1,15 @@
 
+Changes with nginx 1.7.0                                         24 Apr 2014
+
+    *) Feature: backend SSL certificate verification.
+
+    *) Feature: support for SNI while working with SSL backends.
+
+    *) Feature: the $ssl_server_name variable.
+
+    *) Feature: the "if" parameter of the "access_log" directive.
+
+
 Changes with nginx 1.5.13                                        08 Apr 2014
 
     *) Change: improved hash table handling; the default values of the
