@@ -49,7 +49,6 @@ ngx_http_write_filter(ngx_http_request_t *r, ngx_chain_t *in)
 {
     off_t                      size, sent, limit;
     ngx_uint_t                 last, flush;
-    ngx_msec_t                 delay;
     ngx_chain_t               *cl, *ln, **ll, *chain;
     ngx_connection_t          *c;
     ngx_http_core_loc_conf_t  *clcf;
@@ -246,18 +245,11 @@ ngx_http_write_filter(ngx_http_request_t *r, ngx_chain_t *in)
     }
 
     if (r->limit_rate) {
-        delay = (ngx_msec_t) ((c->sent - sent) * 1000 / r->limit_rate + 1);
+        sent = c->sent - sent;
+        c->write->delayed = 1;
+        ngx_add_timer(c->write, (ngx_msec_t) (sent * 1000 / r->limit_rate + 1));
 
-        if (delay > 0) {
-            c->write->delayed = 1;
-            ngx_add_timer(c->write, delay);
-        }
-
-    } else if (c->write->ready
-               && clcf->sendfile_max_chunk
-               && (size_t) (c->sent - sent)
-                      >= clcf->sendfile_max_chunk - 2 * ngx_pagesize)
-    {
+    } else if (c->write->ready && clcf->sendfile_max_chunk) {
         c->write->delayed = 1;
         ngx_add_timer(c->write, 1);
     }

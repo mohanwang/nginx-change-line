@@ -15,7 +15,6 @@
 
 #define POLLREMOVE   0x0800
 #define DP_POLL      0xD001
-#define DP_ISPOLLED  0xD002
 
 struct dvpoll {
     struct pollfd  *dp_fds;
@@ -27,19 +26,16 @@ struct dvpoll {
 
 
 typedef struct {
-    ngx_uint_t      changes;
-    ngx_uint_t      events;
+    u_int  changes;
+    u_int  events;
 } ngx_devpoll_conf_t;
 
 
 static ngx_int_t ngx_devpoll_init(ngx_cycle_t *cycle, ngx_msec_t timer);
 static void ngx_devpoll_done(ngx_cycle_t *cycle);
-static ngx_int_t ngx_devpoll_add_event(ngx_event_t *ev, ngx_int_t event,
-    ngx_uint_t flags);
-static ngx_int_t ngx_devpoll_del_event(ngx_event_t *ev, ngx_int_t event,
-    ngx_uint_t flags);
-static ngx_int_t ngx_devpoll_set_event(ngx_event_t *ev, ngx_int_t event,
-    ngx_uint_t flags);
+static ngx_int_t ngx_devpoll_add_event(ngx_event_t *ev, int event, u_int flags);
+static ngx_int_t ngx_devpoll_del_event(ngx_event_t *ev, int event, u_int flags);
+static ngx_int_t ngx_devpoll_set_event(ngx_event_t *ev, int event, u_int flags);
 static ngx_int_t ngx_devpoll_process_events(ngx_cycle_t *cycle,
     ngx_msec_t timer, ngx_uint_t flags);
 
@@ -48,7 +44,7 @@ static char *ngx_devpoll_init_conf(ngx_cycle_t *cycle, void *conf);
 
 static int              dp = -1;
 static struct pollfd   *change_list, *event_list;
-static ngx_uint_t       nchanges, max_changes, nevents;
+static u_int            nchanges, max_changes, nevents;
 
 static ngx_event_t    **change_index;
 
@@ -212,7 +208,7 @@ ngx_devpoll_done(ngx_cycle_t *cycle)
 
 
 static ngx_int_t
-ngx_devpoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
+ngx_devpoll_add_event(ngx_event_t *ev, int event, u_int flags)
 {
 #if (NGX_DEBUG)
     ngx_connection_t *c;
@@ -225,7 +221,7 @@ ngx_devpoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
 #if (NGX_DEBUG)
     c = ev->data;
     ngx_log_debug2(NGX_LOG_DEBUG_EVENT, ev->log, 0,
-                   "devpoll add event: fd:%d ev:%04Xi", c->fd, event);
+                   "devpoll add event: fd:%d ev:%04Xd", c->fd, event);
 #endif
 
     ev->active = 1;
@@ -235,7 +231,7 @@ ngx_devpoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
 
 
 static ngx_int_t
-ngx_devpoll_del_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
+ngx_devpoll_del_event(ngx_event_t *ev, int event, u_int flags)
 {
     ngx_event_t       *e;
     ngx_connection_t  *c;
@@ -247,7 +243,7 @@ ngx_devpoll_del_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
 #endif
 
     ngx_log_debug2(NGX_LOG_DEBUG_EVENT, ev->log, 0,
-                   "devpoll del event: fd:%d ev:%04Xi", c->fd, event);
+                   "devpoll del event: fd:%d ev:%04Xd", c->fd, event);
 
     if (ngx_devpoll_set_event(ev, POLLREMOVE, flags) == NGX_ERROR) {
         return NGX_ERROR;
@@ -256,16 +252,10 @@ ngx_devpoll_del_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
     ev->active = 0;
 
     if (flags & NGX_CLOSE_EVENT) {
-        e = (event == POLLIN) ? c->write : c->read;
-
-        if (e) {
-            e->active = 0;
-        }
-
         return NGX_OK;
     }
 
-    /* restore the pair event if it exists */
+    /* restore the paired event if it exists */
 
     if (event == POLLIN) {
         e = c->write;
@@ -285,7 +275,7 @@ ngx_devpoll_del_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
 
 
 static ngx_int_t
-ngx_devpoll_set_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
+ngx_devpoll_set_event(ngx_event_t *ev, int event, u_int flags)
 {
     size_t             n;
     ngx_connection_t  *c;
@@ -293,7 +283,7 @@ ngx_devpoll_set_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
     c = ev->data;
 
     ngx_log_debug3(NGX_LOG_DEBUG_EVENT, ev->log, 0,
-                   "devpoll fd:%d ev:%04Xi fl:%04Xi", c->fd, event, flags);
+                   "devpoll fd:%d ev:%04Xd fl:%04Xd", c->fd, event, flags);
 
     if (nchanges >= max_changes) {
         ngx_log_error(NGX_LOG_WARN, ev->log, 0,
@@ -310,7 +300,7 @@ ngx_devpoll_set_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
     }
 
     change_list[nchanges].fd = c->fd;
-    change_list[nchanges].events = (short) event;
+    change_list[nchanges].events = event;
     change_list[nchanges].revents = 0;
 
     change_index[nchanges] = ev;
@@ -337,15 +327,13 @@ ngx_int_t
 ngx_devpoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer,
     ngx_uint_t flags)
 {
-    int                 events, revents, rc;
+    int                 events, revents;
     size_t              n;
-    ngx_fd_t            fd;
     ngx_err_t           err;
     ngx_int_t           i;
     ngx_uint_t          level;
     ngx_event_t        *rev, *wev, **queue;
     ngx_connection_t   *c;
-    struct pollfd       pfd;
     struct dvpoll       dvp;
 
     /* NGX_TIMER_INFINITE == INFTIM */
@@ -365,7 +353,7 @@ ngx_devpoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer,
     }
 
     dvp.dp_fds = event_list;
-    dvp.dp_nfds = (int) nevents;
+    dvp.dp_nfds = nevents;
     dvp.dp_timeout = timer;
     events = ioctl(dp, DP_POLL, &dvp);
 
@@ -410,77 +398,34 @@ ngx_devpoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer,
     ngx_mutex_lock(ngx_posted_events_mutex);
 
     for (i = 0; i < events; i++) {
+        c = ngx_cycle->files[event_list[i].fd];
 
-        fd = event_list[i].fd;
-        revents = event_list[i].revents;
-
-        c = ngx_cycle->files[fd];
-
-        if (c == NULL || c->fd == -1) {
-
-            pfd.fd = fd;
-            pfd.events = 0;
-            pfd.revents = 0;
-
-            rc = ioctl(dp, DP_ISPOLLED, &pfd);
-
-            switch (rc) {
-
-            case -1:
-                ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
-                    "ioctl(DP_ISPOLLED) failed for socket %d, event",
-                    fd, revents);
-                break;
-
-            case 0:
-                ngx_log_error(NGX_LOG_ALERT, cycle->log, 0,
-                    "phantom event %04Xd for closed and removed socket %d",
-                    revents, fd);
-                break;
-
-            default:
-                ngx_log_error(NGX_LOG_ALERT, cycle->log, 0,
-                    "unexpected event %04Xd for closed and removed socket %d, ",
-                    "ioctl(DP_ISPOLLED) returned rc:%d, fd:%d, event %04Xd",
-                    revents, fd, rc, pfd.fd, pfd.revents);
-
-                pfd.fd = fd;
-                pfd.events = POLLREMOVE;
-                pfd.revents = 0;
-
-                if (write(dp, &pfd, sizeof(struct pollfd))
-                    != (ssize_t) sizeof(struct pollfd))
-                {
-                    ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
-                                  "write(/dev/poll) for %d failed, fd");
-                }
-
-                if (close(fd) == -1) {
-                    ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
-                                  "close(%d) failed", fd);
-                }
-
-                break;
+        if (c->fd == -1) {
+            if (c->read->closed) {
+                continue;
             }
 
+            ngx_log_error(NGX_LOG_ALERT, cycle->log, 0, "unexpected event");
             continue;
         }
 
+        revents = event_list[i].revents;
+
         ngx_log_debug3(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                        "devpoll: fd:%d, ev:%04Xd, rev:%04Xd",
-                       fd, event_list[i].events, revents);
+                       event_list[i].fd, event_list[i].events, revents);
 
         if (revents & (POLLERR|POLLHUP|POLLNVAL)) {
             ngx_log_debug3(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                           "ioctl(DP_POLL) error fd:%d ev:%04Xd rev:%04Xd",
-                          fd, event_list[i].events, revents);
+                          event_list[i].fd, event_list[i].events, revents);
         }
 
         if (revents & ~(POLLIN|POLLOUT|POLLERR|POLLHUP|POLLNVAL)) {
             ngx_log_error(NGX_LOG_ALERT, cycle->log, 0,
                           "strange ioctl(DP_POLL) events "
                           "fd:%d ev:%04Xd rev:%04Xd",
-                          fd, event_list[i].events, revents);
+                          event_list[i].fd, event_list[i].events, revents);
         }
 
         if ((revents & (POLLERR|POLLHUP|POLLNVAL))

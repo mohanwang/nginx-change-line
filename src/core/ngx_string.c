@@ -59,9 +59,8 @@ ngx_pstrdup(ngx_pool_t *pool, ngx_str_t *src)
  *    %P                        ngx_pid_t
  *    %M                        ngx_msec_t
  *    %r                        rlim_t
- *    %p                        void *
- *    %V                        ngx_str_t *
- *    %v                        ngx_variable_value_t *
+ *    %p                        pointer
+ *    %V                        pointer to ngx_str_t
  *    %s                        null-terminated string
  *    %Z                        '\0'
  *    %N                        '\n'
@@ -106,22 +105,21 @@ ngx_snprintf(u_char *buf, size_t max, const char *fmt, ...)
 u_char *
 ngx_vsnprintf(u_char *buf, size_t max, const char *fmt, va_list args)
 {
-    u_char                *p, zero, *last, temp[NGX_INT64_LEN + 1];
+    u_char         *p, zero, *last, temp[NGX_INT64_LEN + 1];
                                     /*
                                      * really we need temp[NGX_INT64_LEN] only,
                                      * but icc issues the warning
                                      */
-    int                    d;
-    size_t                 len;
-    uint32_t               ui32;
-    int64_t                i64;
-    uint64_t               ui64;
-    ngx_msec_t             ms;
-    ngx_uint_t             width, sign, hexadecimal, max_width;
-    ngx_str_t             *v;
-    ngx_variable_value_t  *vv;
-    static u_char          hex[] = "0123456789abcdef";
-    static u_char          HEX[] = "0123456789ABCDEF";
+    int             d;
+    size_t          len;
+    uint32_t        ui32;
+    int64_t         i64;
+    uint64_t        ui64;
+    ngx_msec_t      ms;
+    ngx_str_t      *s;
+    ngx_uint_t      width, sign, hexadecimal, max_width;
+    static u_char   hex[] = "0123456789abcdef";
+    static u_char   HEX[] = "0123456789ABCDEF";
 
     if (max == 0) {
         return buf;
@@ -190,23 +188,12 @@ ngx_vsnprintf(u_char *buf, size_t max, const char *fmt, va_list args)
             switch (*fmt) {
 
             case 'V':
-                v = va_arg(args, ngx_str_t *);
+                s = va_arg(args, ngx_str_t *);
 
-                len = v->len;
+                len = s->len & 0xffff;
                 len = (buf + len < last) ? len : (size_t) (last - buf);
 
-                buf = ngx_cpymem(buf, v->data, len);
-                fmt++;
-
-                continue;
-
-            case 'v':
-                vv = va_arg(args, ngx_variable_value_t *);
-
-                len = vv->len;
-                len = (buf + len < last) ? len : (size_t) (last - buf);
-
-                buf = ngx_cpymem(buf, vv->data, len);
+                buf = ngx_cpymem(buf, s->data, len);
                 fmt++;
 
                 continue;
@@ -442,7 +429,7 @@ ngx_vsnprintf(u_char *buf, size_t max, const char *fmt, va_list args)
 
 
 /*
- * We use ngx_strcasecmp()/ngx_strncasecmp() for 7-bit ASCII strings only,
+ * We use ngx_strcasecmp()/ngx_strncasecmp() for 7-bit ASCII string only,
  * and implement our own ngx_strcasecmp()/ngx_strncasecmp()
  * to avoid libc locale overhead.  Besides, we use the ngx_uint_t's
  * instead of the u_char's, because they are slightly faster.
@@ -500,95 +487,6 @@ ngx_strncasecmp(u_char *s1, u_char *s2, size_t n)
     }
 
     return 0;
-}
-
-
-u_char *
-ngx_strnstr(u_char *s1, char *s2, size_t len)
-{
-    u_char  c1, c2;
-    size_t  n;
-
-    c2 = *(u_char *) s2++;
-
-    n = ngx_strlen(s2);
-
-    do {
-        do {
-            if (len-- == 0) {
-                return NULL;
-            }
-
-            c1 = *s1++;
-
-            if (c1 == 0) {
-                return NULL;
-            }
-
-        } while (c1 != c2);
-
-        if (n > len) {
-            return NULL;
-        }
-
-    } while (ngx_strncmp(s1, (u_char *) s2, n) != 0);
-
-    return --s1;
-}
-
-
-/*
- * ngx_strstrn() and ngx_strcasestrn() are intended to search for static
- * substring with known length in null-terminated string. The argument n
- * must be length of the second substring - 1.
- */
-
-u_char *
-ngx_strstrn(u_char *s1, char *s2, size_t n)
-{
-    u_char  c1, c2;
-
-    c2 = *(u_char *) s2++;
-
-    do {
-        do {
-            c1 = *s1++;
-
-            if (c1 == 0) {
-                return NULL;
-            }
-
-        } while (c1 != c2);
-
-    } while (ngx_strncmp(s1, (u_char *) s2, n) != 0);
-
-    return --s1;
-}
-
-
-u_char *
-ngx_strcasestrn(u_char *s1, char *s2, size_t n)
-{
-    ngx_uint_t  c1, c2;
-
-    c2 = (ngx_uint_t) *s2++;
-    c2  = (c2 >= 'A' && c2 <= 'Z') ? (c2 | 0x20) : c2;
-
-    do {
-        do {
-            c1 = (ngx_uint_t) *s1++;
-
-            if (c1 == 0) {
-                return NULL;
-            }
-
-            c1  = (c1 >= 'A' && c1 <= 'Z') ? (c1 | 0x20) : c1;
-
-        } while (c1 != c2);
-
-    } while (ngx_strncasecmp(s1, (u_char *) s2, n) != 0);
-
-    return --s1;
 }
 
 
@@ -1121,13 +1019,13 @@ ngx_escape_uri(u_char *dst, u_char *src, size_t size, ngx_uint_t type)
         0xffffffff  /* 1111 1111 1111 1111  1111 1111 1111 1111 */
     };
 
-                    /* " ", "#", """, "%", "'", %00-%1F, %7F-%FF */
+                    /* " ", """, "%", "'", %00-%1F, %7F-%FF */
 
     static uint32_t   html[] = {
         0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
 
                     /* ?>=< ;:98 7654 3210  /.-, +*)( '&%$ #"!  */
-        0x000000ad, /* 0000 0000 0000 0000  0000 0000 1010 1101 */
+        0x800000ad, /* 0000 0000 0000 0000  0000 0000 1010 1101 */
 
                     /* _^]\ [ZYX WVUT SRQP  ONML KJIH GFED CBA@ */
         0x00000000, /* 0000 0000 0000 0000  0000 0000 0000 0000 */
@@ -1141,53 +1039,18 @@ ngx_escape_uri(u_char *dst, u_char *src, size_t size, ngx_uint_t type)
         0xffffffff  /* 1111 1111 1111 1111  1111 1111 1111 1111 */
     };
 
-                    /* " ", """, "%", "'", %00-%1F, %7F-%FF */
 
-    static uint32_t   refresh[] = {
-        0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
-
-                    /* ?>=< ;:98 7654 3210  /.-, +*)( '&%$ #"!  */
-        0x00000085, /* 0000 0000 0000 0000  0000 0000 1000 0101 */
-
-                    /* _^]\ [ZYX WVUT SRQP  ONML KJIH GFED CBA@ */
-        0x00000000, /* 0000 0000 0000 0000  0000 0000 0000 0000 */
-
-                    /*  ~}| {zyx wvut srqp  onml kjih gfed cba` */
-        0x80000000, /* 1000 0000 0000 0000  0000 0000 0000 0000 */
-
-        0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
-        0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
-        0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
-        0xffffffff  /* 1111 1111 1111 1111  1111 1111 1111 1111 */
-    };
-
-                    /* " ", "%", %00-%1F */
-
-    static uint32_t   memcached[] = {
-        0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
-
-                    /* ?>=< ;:98 7654 3210  /.-, +*)( '&%$ #"!  */
-        0x00000021, /* 0000 0000 0000 0000  0000 0000 0010 0001 */
-
-                    /* _^]\ [ZYX WVUT SRQP  ONML KJIH GFED CBA@ */
-        0x00000000, /* 0000 0000 0000 0000  0000 0000 0000 0000 */
-
-                    /*  ~}| {zyx wvut srqp  onml kjih gfed cba` */
-        0x00000000, /* 0000 0000 0000 0000  0000 0000 0000 0000 */
-
-        0x00000000, /* 0000 0000 0000 0000  0000 0000 0000 0000 */
-        0x00000000, /* 0000 0000 0000 0000  0000 0000 0000 0000 */
-        0x00000000, /* 0000 0000 0000 0000  0000 0000 0000 0000 */
-        0x00000000, /* 0000 0000 0000 0000  0000 0000 0000 0000 */
-    };
-
-                    /* mail_auth is the same as memcached */
-
-    static uint32_t  *map[] =
-        { uri, args, html, refresh, memcached, memcached };
-
-
-    escape = map[type];
+    switch (type) {
+    case NGX_ESCAPE_HTML:
+        escape = html;
+        break;
+    case NGX_ESCAPE_ARGS:
+        escape = args;
+        break;
+    default:
+        escape = uri;
+        break;
+    }
 
     if (dst == NULL) {
 
@@ -1243,9 +1106,7 @@ ngx_unescape_uri(u_char **dst, u_char **src, size_t size, ngx_uint_t type)
 
         switch (state) {
         case sw_usual:
-            if (ch == '?'
-                && (type & (NGX_UNESCAPE_URI|NGX_UNESCAPE_REDIRECT)))
-            {
+            if (ch == '?' && type == NGX_UNESCAPE_URI) {
                 *d++ = ch;
                 goto done;
             }
@@ -1288,7 +1149,7 @@ ngx_unescape_uri(u_char **dst, u_char **src, size_t size, ngx_uint_t type)
             if (ch >= '0' && ch <= '9') {
                 ch = (u_char) ((decoded << 4) + ch - '0');
 
-                if (type & NGX_UNESCAPE_REDIRECT) {
+                if (type == NGX_UNESCAPE_URI) {
                     if (ch > '%' && ch < 0x7f) {
                         *d++ = ch;
                         break;
@@ -1308,17 +1169,7 @@ ngx_unescape_uri(u_char **dst, u_char **src, size_t size, ngx_uint_t type)
             if (c >= 'a' && c <= 'f') {
                 ch = (u_char) ((decoded << 4) + c - 'a' + 10);
 
-                if (type & NGX_UNESCAPE_URI) {
-                    if (ch == '?') {
-                        *d++ = ch;
-                        goto done;
-                    }
-
-                    *d++ = ch;
-                    break;
-                }
-
-                if (type & NGX_UNESCAPE_REDIRECT) {
+                if (type == NGX_UNESCAPE_URI) {
                     if (ch == '?') {
                         *d++ = ch;
                         goto done;
@@ -1348,67 +1199,6 @@ done:
 
     *dst = d;
     *src = s;
-}
-
-
-uintptr_t
-ngx_escape_html(u_char *dst, u_char *src, size_t size)
-{
-    u_char      ch;
-    ngx_uint_t  i, len;
-
-    if (dst == NULL) {
-
-        len = 0;
-
-        for (i = 0; i < size; i++) {
-            switch (*src++) {
-
-            case '<':
-                len += sizeof("&lt;") - 2;
-                break; 
-
-            case '>':
-                len += sizeof("&gt;") - 2;
-                break; 
-
-            case '&':
-                len += sizeof("&amp;") - 2;
-                break; 
-
-            default:
-                break;
-            }
-        }
-
-        return (uintptr_t) len;
-    }
-
-    for (i = 0; i < size; i++) {
-        ch = *src++;
-
-        switch (ch) {
-
-        case '<':
-            *dst++ = '&'; *dst++ = 'l'; *dst++ = 't'; *dst++ = ';';
-            break;
-
-        case '>':
-            *dst++ = '&'; *dst++ = 'g'; *dst++ = 't'; *dst++ = ';';
-            break;
-
-        case '&':
-            *dst++ = '&'; *dst++ = 'a'; *dst++ = 'm'; *dst++ = 'p';
-            *dst++ = ';';
-            break;
-
-        default:
-            *dst++ = ch;
-            break;
-        }
-    }
-
-    return (uintptr_t) dst;
 }
 
 

@@ -29,10 +29,3 @@
         lock
         xaddl     %eax, (%ecx)
         .end
-
-
-/ ngx_cpu_pause()
-
-       .inline ngx_cpu_pause,0
-       pause
-       .end

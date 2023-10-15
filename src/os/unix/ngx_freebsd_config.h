@@ -48,15 +48,10 @@
 
 #if __FreeBSD_version < 400017
 
-/*
- * FreeBSD 3.x has no CMSG_SPACE() and CMSG_LEN() and has the broken CMSG_DATA()
- */
+/* FreeBSD 3.x has no CMSG_SPACE() at all and has the broken CMSG_DATA() */
 
 #undef  CMSG_SPACE
 #define CMSG_SPACE(l)       (ALIGN(sizeof(struct cmsghdr)) + ALIGN(l))
-
-#undef  CMSG_LEN
-#define CMSG_LEN(l)         (ALIGN(sizeof(struct cmsghdr)) + (l))
 
 #undef  CMSG_DATA
 #define CMSG_DATA(cmsg)     ((u_char *)(cmsg) + ALIGN(sizeof(struct cmsghdr)))
@@ -80,9 +75,6 @@
 #if (NGX_HAVE_KQUEUE)
 #include <sys/event.h>
 #endif
-
-
-#define NGX_LISTEN_BACKLOG        -1
 
 
 #if (defined SO_ACCEPTFILTER && !defined NGX_HAVE_DEFERRED_ACCEPT)
@@ -110,7 +102,7 @@ pid_t rfork_thread(int flags, void *stack, int (*func)(void *arg), void *arg);
 
 
 extern char **environ;
-extern char  *malloc_options;
+extern char *malloc_options;
 
 
 #endif /* _NGX_FREEBSD_CONFIG_H_INCLUDED_ */

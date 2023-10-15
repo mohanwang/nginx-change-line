@@ -322,8 +322,8 @@ ngx_http_sub_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
                 b->recycled = 0;
 
                 if (b->in_file) {
-                    b->file_last = b->file_pos + (b->last - ctx->buf->pos);
-                    b->file_pos += b->pos - ctx->buf->pos;
+                    b->file_last = b->file_pos + (b->last - b->start);
+                    b->file_pos += b->pos - b->start;
                 }
 
                 cl->next = NULL;
@@ -369,14 +369,9 @@ ngx_http_sub_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
                 }
             }
 
-            if (ctx->sub.len) {
-                b->memory = 1;
-                b->pos = ctx->sub.data;
-                b->last = ctx->sub.data + ctx->sub.len;
-
-            } else {
-                b->sync = 1;
-            }
+            b->memory = 1;
+            b->pos = ctx->sub.data;
+            b->last = ctx->sub.data + ctx->sub.len;
 
             cl->buf = b;
             cl->next = NULL;
@@ -562,7 +557,6 @@ ngx_http_sub_parse(ngx_http_request_t *r, ngx_http_sub_ctx_t *ctx)
                 ch = ngx_tolower(ch);
             }
 
-            ctx->state = state;
             ctx->pos = p;
             ctx->looked = looked;
             ctx->copy_end = p;
@@ -584,13 +578,9 @@ ngx_http_sub_parse(ngx_http_request_t *r, ngx_http_sub_ctx_t *ctx)
             looked++;
 
             if (looked == ctx->match.len) {
-                if ((size_t) (p - ctx->pos) < looked) {
-                    ctx->saved = 0;
-                }
-
                 ctx->state = sub_start_state;
                 ctx->pos = p + 1;
-                ctx->looked = 0;
+                ctx->looked = looked;
                 ctx->copy_end = copy_end;
 
                 if (ctx->copy_start == NULL && copy_end) {

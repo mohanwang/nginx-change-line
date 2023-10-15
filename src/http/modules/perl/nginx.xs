@@ -131,8 +131,6 @@ send_http_header(r, ...)
             XSRETURN_EMPTY;
         }
 
-        r->headers_out.content_type_len = r->headers_out.content_type.len;
-
     } else {
         if (ngx_http_set_content_type(r) != NGX_OK) {
             XSRETURN_EMPTY;
@@ -912,7 +910,7 @@ variable(r, name, value = NULL)
     if (value) {
         vv->len = val.len;
         vv->valid = 1;
-        vv->no_cacheable = 0;
+        vv->no_cachable = 0;
         vv->not_found = 0;
         vv->data = val.data;
 

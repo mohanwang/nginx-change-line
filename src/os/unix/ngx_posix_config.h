@@ -19,12 +19,6 @@
 #endif
 
 
-#ifdef __CYGWIN__
-#define timezonevar             /* timezone is variable */
-#define NGX_BROKEN_SCM_RIGHTS   1
-#endif
-
-
 #include <sys/types.h>
 #include <sys/time.h>
 #if (NGX_HAVE_UNISTD_H)
@@ -70,15 +64,6 @@
 #include <limits.h>             /* IOV_MAX */
 #endif
 
-#if (NGX_HAVE_MALLOC_H)
-#include <malloc.h>             /* memalign() */
-#endif
-
-#if (NGX_HAVE_CRYPT_H)
-#include <crypt.h>
-#endif
-
-
 #ifndef IOV_MAX
 #define IOV_MAX   16
 #endif
@@ -103,22 +88,14 @@
 #endif
 
 
-#define NGX_LISTEN_BACKLOG  511
-
-
 #if (__FreeBSD__) && (__FreeBSD_version < 400017)
 
 #include <sys/param.h>          /* ALIGN() */
 
-/* 
- * FreeBSD 3.x has no CMSG_SPACE() and CMSG_LEN() and has the broken CMSG_DATA()
- */
+/* FreeBSD 3.x has no CMSG_SPACE() at all and has the broken CMSG_DATA() */
 
 #undef  CMSG_SPACE
 #define CMSG_SPACE(l)       (ALIGN(sizeof(struct cmsghdr)) + ALIGN(l))
-
-#undef  CMSG_LEN
-#define CMSG_LEN(l)         (ALIGN(sizeof(struct cmsghdr)) + (l))
 
 #undef  CMSG_DATA
 #define CMSG_DATA(cmsg)     ((u_char *)(cmsg) + ALIGN(sizeof(struct cmsghdr)))

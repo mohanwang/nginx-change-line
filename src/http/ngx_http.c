@@ -98,9 +98,6 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_http_core_loc_conf_t    *clcf;
     ngx_http_phase_handler_pt    checker;
     ngx_http_core_main_conf_t   *cmcf;
-#if (NGX_PCRE)
-    ngx_uint_t                   regex;
-#endif
 #if (NGX_WIN32)
     ngx_iocp_conf_t             *iocpcf;
 #endif
@@ -404,7 +401,6 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
 
     cmcf->phase_engine.server_rewrite_index = (ngx_uint_t) -1;
-    cmcf->phase_engine.location_rewrite_index = (ngx_uint_t) -1;
     find_config_index = 0;
     use_rewrite = cmcf->phases[NGX_HTTP_REWRITE_PHASE].handlers.nelts ? 1 : 0;
     use_access = cmcf->phases[NGX_HTTP_ACCESS_PHASE].handlers.nelts ? 1 : 0;
@@ -445,14 +441,6 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             ph++;
 
             continue;
-
-        case NGX_HTTP_REWRITE_PHASE:
-            if (cmcf->phase_engine.location_rewrite_index == (ngx_uint_t) -1) {
-                cmcf->phase_engine.location_rewrite_index = n;
-            }
-            checker = ngx_http_core_generic_phase;
-
-            break;
 
         case NGX_HTTP_POST_REWRITE_PHASE:
             if (use_rewrite) {
@@ -553,8 +541,8 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
                         if (in_addr[a].default_server) {
                             ngx_log_error(NGX_LOG_ERR, cf->log, 0,
-                                      "the duplicate default server in %s:%ui",
-                                       &lscf[l].file_name, lscf[l].line);
+                                        "the duplicate default server in %V:%d",
+                                        &lscf[l].file_name, lscf[l].line);
 
                             return NGX_CONF_ERROR;
                         }
@@ -658,20 +646,9 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
                 return NGX_CONF_ERROR;
             }
 
-#if (NGX_PCRE)
-            regex = 0;
-#endif
-
             name = in_addr[a].names.elts;
 
             for (s = 0; s < in_addr[a].names.nelts; s++) {
-
-#if (NGX_PCRE)
-                if (name[s].regex) {
-                    regex++;
-                    continue;
-                }
-#endif
 
                 rc = ngx_hash_add_key(&ha, &name[s].name, name[s].core_srv_conf,
                                       NGX_HASH_WILDCARD_KEY);
@@ -754,27 +731,6 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             }
 
             ngx_destroy_pool(ha.temp_pool);
-
-#if (NGX_PCRE)
-
-            if (regex == 0) {
-                continue;
-            }
-
-            in_addr[a].nregex = regex;
-            in_addr[a].regex = ngx_palloc(cf->pool,
-                                       regex * sizeof(ngx_http_server_name_t));
-
-            if (in_addr[a].regex == NULL) {
-                return NGX_CONF_ERROR;
-            }
-
-            for (i = 0, s = 0; s < in_addr[a].names.nelts; s++) {
-                if (name[s].regex) {
-                    in_addr[a].regex[i++] = name[s];
-                }
-            }
-#endif
         }
 
         in_addr = in_port[p].addrs.elts;
@@ -906,13 +862,9 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
                 }
                 hip->addrs[i].virtual_names = vn;
 
-                vn->names.hash = in_addr[i].hash;
-                vn->names.wc_head = in_addr[i].wc_head;
-                vn->names.wc_tail = in_addr[i].wc_tail;
-#if (NGX_PCRE)
-                vn->nregex = in_addr[i].nregex;
-                vn->regex = in_addr[i].regex;
-#endif
+                vn->hash = in_addr[i].hash;
+                vn->wc_head = in_addr[i].wc_head;
+                vn->wc_tail = in_addr[i].wc_tail;
             }
 
             if (done) {
@@ -971,8 +923,7 @@ ngx_http_add_address(ngx_conf_t *cf, ngx_http_conf_in_port_t *in_port,
 
     if (in_port->addrs.elts == NULL) {
         if (ngx_array_init(&in_port->addrs, cf->temp_pool, 4,
-                           sizeof(ngx_http_conf_in_addr_t))
-            != NGX_OK)
+                           sizeof(ngx_http_conf_in_addr_t)) != NGX_OK)
         {
             return NGX_ERROR;
         }
@@ -989,10 +940,6 @@ ngx_http_add_address(ngx_conf_t *cf, ngx_http_conf_in_port_t *in_port,
     in_addr->wc_head = NULL;
     in_addr->wc_tail = NULL;
     in_addr->names.elts = NULL;
-#if (NGX_PCRE)
-    in_addr->nregex = 0;
-    in_addr->regex = NULL;
-#endif
     in_addr->core_srv_conf = cscf;
     in_addr->default_server = lscf->conf.default_server;
     in_addr->bind = lscf->conf.bind;
@@ -1025,15 +972,13 @@ ngx_http_add_names(ngx_conf_t *cf, ngx_http_conf_in_addr_t *in_addr,
 
     if (in_addr->names.elts == NULL) {
         if (ngx_array_init(&in_addr->names, cf->temp_pool, 4,
-                           sizeof(ngx_http_server_name_t))
-            != NGX_OK)
+                           sizeof(ngx_http_server_name_t)) != NGX_OK)
         {
             return NGX_ERROR;
         }
     }
 
     server_names = cscf->server_names.elts;
-
     for (i = 0; i < cscf->server_names.nelts; i++) {
 
         for (n = 0; n < server_names[i].name.len; n++) {
@@ -1043,6 +988,7 @@ ngx_http_add_names(ngx_conf_t *cf, ngx_http_conf_in_addr_t *in_addr,
 
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, cf->log, 0,
                        "name: %V", &server_names[i].name);
+
 
         name = ngx_array_push(&in_addr->names);
         if (name == NULL) {

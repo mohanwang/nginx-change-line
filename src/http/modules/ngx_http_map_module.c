@@ -151,7 +151,7 @@ ngx_http_map_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v,
     }
 
     ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                   "http map: \"%v\" \"%v\"", vv, v);
+                   "http map: \"%V\" \"%V\"", vv, v);
 
     return NGX_OK;
 }
@@ -221,7 +221,7 @@ ngx_http_map_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     name.len--;
     name.data++;
 
-    var = ngx_http_add_variable(cf, &name, NGX_HTTP_VAR_CHANGEABLE);
+    var = ngx_http_add_variable(cf, &name, NGX_HTTP_VAR_CHANGABLE);
     if (var == NULL) {
         return NGX_CONF_ERROR;
     }
@@ -430,7 +430,7 @@ ngx_http_map(ngx_conf_t *cf, ngx_command_t *dummy, void *conf)
     }
 
     var->valid = 1;
-    var->no_cacheable = 0;
+    var->no_cachable = 0;
     var->not_found = 0;
 
     vp = ngx_array_push(&ctx->values_hash[key]);

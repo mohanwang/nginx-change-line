@@ -61,11 +61,9 @@ static char *ngx_http_userid_expires(ngx_conf_t *cf, ngx_command_t *cmd,
 static char *ngx_http_userid_p3p(ngx_conf_t *cf, void *post, void *data);
 static char *ngx_http_userid_mark(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
-static ngx_int_t ngx_http_userid_init_worker(ngx_cycle_t *cycle);
 
 
 
-static uint32_t  start_value;
 static uint32_t  sequencer_v1 = 1;
 static uint32_t  sequencer_v2 = 0x03030302;
 
@@ -175,7 +173,7 @@ ngx_module_t  ngx_http_userid_filter_module = {
     NGX_HTTP_MODULE,                       /* module type */
     NULL,                                  /* init master */
     NULL,                                  /* init module */
-    ngx_http_userid_init_worker,           /* init process */
+    NULL,                                  /* init process */
     NULL,                                  /* init thread */
     NULL,                                  /* exit thread */
     NULL,                                  /* exit process */
@@ -321,7 +319,7 @@ ngx_http_userid_set_uid(ngx_http_request_t *r, ngx_http_userid_ctx_t *ctx,
                 ctx->uid_set[0] = conf->service;
             }
             ctx->uid_set[1] = ngx_time();
-            ctx->uid_set[2] = start_value;
+            ctx->uid_set[2] = ngx_pid;
             ctx->uid_set[3] = sequencer_v1;
             sequencer_v1 += 0x100;
 
@@ -348,7 +346,7 @@ ngx_http_userid_set_uid(ngx_http_request_t *r, ngx_http_userid_ctx_t *ctx,
             }
 
             ctx->uid_set[1] = htonl(ngx_time());
-            ctx->uid_set[2] = htonl(start_value);
+            ctx->uid_set[2] = htonl(ngx_pid);
             ctx->uid_set[3] = htonl(sequencer_v2);
             sequencer_v2 += 0x100;
             if (sequencer_v2 < 0x03030302) {
@@ -495,7 +493,7 @@ ngx_http_userid_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v,
     }
 
     v->valid = 1;
-    v->no_cacheable = 0;
+    v->no_cachable = 0;
     v->not_found = 0;
 
     ngx_sprintf(v->data, "%V=%08XD%08XD%08XD%08XD",
@@ -708,18 +706,3 @@ ngx_http_userid_mark(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     return NGX_CONF_OK;
 }
-
-
-static ngx_int_t
-ngx_http_userid_init_worker(ngx_cycle_t *cycle)
-{
-    struct timeval  tp;
-
-    ngx_gettimeofday(&tp);
-
-    /* use the most significant usec part that fits to 16 bits */
-    start_value = ((tp.tv_usec / 20) << 16) | ngx_pid;
-
-    return NGX_OK;
-}
-

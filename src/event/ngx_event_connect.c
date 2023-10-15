@@ -14,7 +14,7 @@ ngx_int_t
 ngx_event_connect_peer(ngx_peer_connection_t *pc)
 {
     int                rc;
-    ngx_int_t          event;
+    u_int              event;
     ngx_err_t          err;
     ngx_uint_t         level;
     ngx_socket_t       s;
@@ -84,8 +84,6 @@ ngx_event_connect_peer(ngx_peer_connection_t *pc)
     c->send = ngx_send;
     c->recv_chain = ngx_recv_chain;
     c->send_chain = ngx_send_chain;
-
-    c->sendfile = 1;
 
     c->log_error = pc->log_error;
 

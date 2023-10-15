@@ -14,7 +14,15 @@
 #include <ngx_http.h>
 
 
-typedef ngx_variable_value_t  ngx_http_variable_value_t;
+typedef struct {
+    unsigned                     len:29;
+
+    unsigned                     valid:1;
+    unsigned                     no_cachable:1;
+    unsigned                     not_found:1;
+
+    u_char                      *data;
+} ngx_http_variable_value_t;
 
 #define ngx_http_variable(v)     { sizeof(v) - 1, 1, 0, 0, (u_char *) v }
 
@@ -26,10 +34,10 @@ typedef ngx_int_t (*ngx_http_get_variable_pt) (ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 
 
-#define NGX_HTTP_VAR_CHANGEABLE   1
-#define NGX_HTTP_VAR_NOCACHEABLE  2
-#define NGX_HTTP_VAR_INDEXED      4
-#define NGX_HTTP_VAR_NOHASH       8
+#define NGX_HTTP_VAR_CHANGABLE   1
+#define NGX_HTTP_VAR_NOCACHABLE  2
+#define NGX_HTTP_VAR_INDEXED     4
+#define NGX_HTTP_VAR_NOHASH      8
 
 
 struct ngx_http_variable_s {

@@ -67,7 +67,6 @@ static char *ngx_http_perl_set(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static void ngx_http_perl_cleanup_perl(void *data);
 #endif
 
-static ngx_int_t ngx_http_perl_init_worker(ngx_cycle_t *cycle);
 static void ngx_http_perl_exit(ngx_cycle_t *cycle);
 
 
@@ -127,7 +126,7 @@ ngx_module_t  ngx_http_perl_module = {
     NGX_HTTP_MODULE,                       /* module type */
     NULL,                                  /* init master */
     NULL,                                  /* init module */
-    ngx_http_perl_init_worker,             /* init process */
+    NULL,                                  /* init process */
     NULL,                                  /* init thread */
     NULL,                                  /* exit thread */
     NULL,                                  /* exit process */
@@ -336,7 +335,7 @@ ngx_http_perl_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v,
     if (value.data) {
         v->len = value.len;
         v->valid = 1;
-        v->no_cacheable = 0;
+        v->no_cachable = 0;
         v->not_found = 0;
         v->data = value.data;
 
@@ -954,7 +953,7 @@ ngx_http_perl_set(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     value[1].len--;
     value[1].data++;
 
-    v = ngx_http_add_variable(cf, &value[1], NGX_HTTP_VAR_CHANGEABLE);
+    v = ngx_http_add_variable(cf, &value[1], NGX_HTTP_VAR_CHANGABLE);
     if (v == NULL) {
         return NGX_CONF_ERROR;
     }
@@ -1004,27 +1003,6 @@ ngx_http_perl_set(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return NGX_CONF_OK;
 }
 
-
-static ngx_int_t
-ngx_http_perl_init_worker(ngx_cycle_t *cycle)
-{
-    ngx_http_perl_main_conf_t  *pmcf;
-
-    pmcf = ngx_http_cycle_get_module_main_conf(cycle, ngx_http_perl_module);
-
-    {
-
-    dTHXa(pmcf->perl);
-    PERL_SET_CONTEXT(pmcf->perl);
-
-    /* set worker's $$ */
-
-    sv_setiv(GvSV(gv_fetchpv("$", TRUE, SVt_PV)), (I32) ngx_pid);
-
-    }
-
-    return NGX_OK;
-}
 
 static void
 ngx_http_perl_exit(ngx_cycle_t *cycle)

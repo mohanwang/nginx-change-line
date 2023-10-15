@@ -185,8 +185,6 @@ ngx_mail_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
         /* init mail{} main_conf's */
 
-        cf->ctx = ctx;
-
         if (module->init_main_conf) {
             rv = module->init_main_conf(cf, ctx->main_conf[mi]);
             if (rv != NGX_CONF_OK) {
@@ -199,8 +197,6 @@ ngx_mail_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
             /* merge the server{}s' srv_conf's */
 
-            cf->ctx = cscfp[s]->ctx;
-
             if (module->merge_srv_conf) {
                 rv = module->merge_srv_conf(cf,
                                             ctx->srv_conf[mi],
@@ -212,6 +208,8 @@ ngx_mail_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             }
         }
     }
+
+    /* mail{}'s cf->ctx was needed while the configuration merging */
 
     *cf = pcf;
 
@@ -302,7 +300,7 @@ ngx_mail_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
                 return NGX_CONF_ERROR;
             }
 
-            ls->backlog = NGX_LISTEN_BACKLOG;
+            ls->backlog = -1;
             ls->rcvbuf = -1;
             ls->sndbuf = -1;
 

@@ -170,19 +170,19 @@ ngx_module_t  ngx_http_ssl_module = {
 static ngx_http_variable_t  ngx_http_ssl_vars[] = {
 
     { ngx_string("ssl_protocol"), NULL, ngx_http_ssl_static_variable,
-      (uintptr_t) ngx_ssl_get_protocol, NGX_HTTP_VAR_CHANGEABLE, 0 },
+      (uintptr_t) ngx_ssl_get_protocol, NGX_HTTP_VAR_CHANGABLE, 0 },
 
     { ngx_string("ssl_cipher"), NULL, ngx_http_ssl_static_variable,
-      (uintptr_t) ngx_ssl_get_cipher_name, NGX_HTTP_VAR_CHANGEABLE, 0 },
+      (uintptr_t) ngx_ssl_get_cipher_name, NGX_HTTP_VAR_CHANGABLE, 0 },
 
     { ngx_string("ssl_client_s_dn"), NULL, ngx_http_ssl_variable,
-      (uintptr_t) ngx_ssl_get_subject_dn, NGX_HTTP_VAR_CHANGEABLE, 0 },
+      (uintptr_t) ngx_ssl_get_subject_dn, NGX_HTTP_VAR_CHANGABLE, 0 },
 
     { ngx_string("ssl_client_i_dn"), NULL, ngx_http_ssl_variable,
-      (uintptr_t) ngx_ssl_get_issuer_dn, NGX_HTTP_VAR_CHANGEABLE, 0 },
+      (uintptr_t) ngx_ssl_get_issuer_dn, NGX_HTTP_VAR_CHANGABLE, 0 },
 
     { ngx_string("ssl_client_serial"), NULL, ngx_http_ssl_variable,
-      (uintptr_t) ngx_ssl_get_serial_number, NGX_HTTP_VAR_CHANGEABLE, 0 },
+      (uintptr_t) ngx_ssl_get_serial_number, NGX_HTTP_VAR_CHANGABLE, 0 },
 
     { ngx_null_string, NULL, NULL, 0, 0, 0 }
 };
@@ -197,20 +197,17 @@ ngx_http_ssl_static_variable(ngx_http_request_t *r,
 {
     ngx_ssl_variable_handler_pt  handler = (ngx_ssl_variable_handler_pt) data;
 
-    size_t     len;
-    ngx_str_t  s;
+    size_t  len;
 
     if (r->connection->ssl) {
 
-        (void) handler(r->connection, NULL, &s);
-
-        v->data = s.data;
+        (void) handler(r->connection, NULL, (ngx_str_t *) v);
 
         for (len = 0; v->data[len]; len++) { /* void */ }
 
         v->len = len;
         v->valid = 1;
-        v->no_cacheable = 0;
+        v->no_cachable = 0;
         v->not_found = 0;
 
         return NGX_OK;
@@ -228,20 +225,14 @@ ngx_http_ssl_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v,
 {
     ngx_ssl_variable_handler_pt  handler = (ngx_ssl_variable_handler_pt) data;
 
-    ngx_str_t  s;
-
     if (r->connection->ssl) {
-
-        if (handler(r->connection, r->pool, &s) != NGX_OK) {
+        if (handler(r->connection, r->pool, (ngx_str_t *) v) != NGX_OK) {
             return NGX_ERROR;
         }
 
-        v->len = s.len;
-        v->data = s.data;
-
         if (v->len) {
             v->valid = 1;
-            v->no_cacheable = 0;
+            v->no_cachable = 0;
             v->not_found = 0;
 
             return NGX_OK;

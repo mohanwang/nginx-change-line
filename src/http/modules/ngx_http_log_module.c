@@ -114,7 +114,7 @@ static ngx_command_t  ngx_http_log_commands[] = {
 
     { ngx_string("access_log"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_HTTP_LIF_CONF
-                        |NGX_HTTP_LMT_CONF|NGX_CONF_TAKE123,
+                        |NGX_CONF_TAKE123,
       ngx_http_log_set_log,
       NGX_HTTP_LOC_CONF_OFFSET,
       0,
@@ -422,11 +422,6 @@ ngx_http_log_bytes_sent(ngx_http_request_t *r, u_char *buf,
     return ngx_sprintf(buf, "%O", r->connection->sent);
 }
 
-
-/*
- * although there is a real $body_bytes_sent variable,
- * this log operation code function is more optimized for logging
- */
 
 static u_char *
 ngx_http_log_body_bytes_sent(ngx_http_request_t *r, u_char *buf,

@@ -9,8 +9,7 @@
 #include <ngx_event.h>
 
 
-ssize_t
-ngx_unix_send(ngx_connection_t *c, u_char *buf, size_t size)
+ssize_t ngx_unix_send(ngx_connection_t *c, u_char *buf, size_t size)
 {
     ssize_t       n;
     ngx_err_t     err;

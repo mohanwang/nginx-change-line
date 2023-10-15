@@ -41,7 +41,7 @@ struct ngx_event_s {
 
     unsigned         accept:1;
 
-    /* used to detect the stale events in kqueue, rtsig, and epoll */
+    /* used to detect the stale events in kqueue, rt signals and epoll */
     unsigned         instance:1;
 
     /*
@@ -126,7 +126,7 @@ struct ngx_event_s {
 
 #endif
 
-    ngx_uint_t       index;
+    u_int            index;
 
     ngx_log_t       *log;
 
@@ -182,7 +182,7 @@ struct ngx_event_s {
 
     /* event should not cross cache line in SMP */
 
-    uint32_t         padding[NGX_EVENT_T_PADDING];
+    int              padding[NGX_EVENT_T_PADDING];
 #endif
 #endif
 };
@@ -195,14 +195,14 @@ typedef struct {
 
 
 typedef struct {
-    ngx_int_t  (*add)(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags);
-    ngx_int_t  (*del)(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags);
+    ngx_int_t  (*add)(ngx_event_t *ev, int event, u_int flags);
+    ngx_int_t  (*del)(ngx_event_t *ev, int event, u_int flags);
 
-    ngx_int_t  (*enable)(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags);
-    ngx_int_t  (*disable)(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags);
+    ngx_int_t  (*enable)(ngx_event_t *ev, int event, u_int flags);
+    ngx_int_t  (*disable)(ngx_event_t *ev, int event, u_int flags);
 
     ngx_int_t  (*add_conn)(ngx_connection_t *c);
-    ngx_int_t  (*del_conn)(ngx_connection_t *c, ngx_uint_t flags);
+    ngx_int_t  (*del_conn)(ngx_connection_t *c, u_int flags);
 
     ngx_int_t  (*process_changes)(ngx_cycle_t *cycle, ngx_uint_t nowait);
     ngx_int_t  (*process_events)(ngx_cycle_t *cycle, ngx_msec_t timer,
@@ -247,7 +247,8 @@ extern ngx_event_actions_t   ngx_event_actions;
 #define NGX_USE_LOWAT_EVENT      0x00000010
 
 /*
- * The event filter requires to do i/o operation until EAGAIN: epoll, rtsig.
+ * The event filter requires to do i/o operation until EAGAIN:
+ * epoll, rt signals.
  */
 #define NGX_USE_GREEDY_EVENT     0x00000020
 
@@ -257,7 +258,7 @@ extern ngx_event_actions_t   ngx_event_actions;
 #define NGX_USE_EPOLL_EVENT      0x00000040
 
 /*
- * No need to add or delete the event filters: rtsig.
+ * No need to add or delete the event filters: rt signals.
  */
 #define NGX_USE_RTSIG_EVENT      0x00000080
 
@@ -275,13 +276,13 @@ extern ngx_event_actions_t   ngx_event_actions;
 
 /*
  * The event filter has no opaque data and requires file descriptors table:
- * poll, /dev/poll, rtsig.
+ * poll, /dev/poll, rt signals.
  */
 #define NGX_USE_FD_EVENT         0x00000400
 
 /*
  * The event module handles periodic or absolute timer event by itself:
- * kqueue in FreeBSD 4.4, NetBSD 2.0, and MacOSX 10.4, Solaris 10's event ports.
+ * kqueue in FreeBSD 4.4 and NetBSD 2.0, Solaris 10's event ports.
  */
 #define NGX_USE_TIMER_EVENT      0x00000800
 
@@ -289,26 +290,17 @@ extern ngx_event_actions_t   ngx_event_actions;
  * All event filters on file descriptor are deleted after a notification:
  * Solaris 10's event ports.
  */
-#define NGX_USE_EVENTPORT_EVENT  0x00001000
+#define NGX_USE_EVENTPORT_EVENT    0x00001000
 
 
 
 /*
- * The event filter is deleted just before the closing file.
- * Has no meaning for select and poll.
- * kqueue, epoll, rtsig, eventport:  allows to avoid explicit delete,
- *                                   because filter automatically is deleted
- *                                   on file close,
- *
- * /dev/poll:                        we need to flush POLLREMOVE event
- *                                   before closing file.
+ * The event filter is deleted before the closing file.
+ * Has no meaning for select, poll, kqueue, epoll.
+ * /dev/poll:  we need to flush POLLREMOVE event before closing file
  */
+
 #define NGX_CLOSE_EVENT    1
-
-/*
- * disable temporarily event filter, this may avoid locks
- * in kernel malloc()/free(): kqueue.
- */
 #define NGX_DISABLE_EVENT  2
 
 
@@ -497,7 +489,7 @@ u_char *ngx_accept_log_error(ngx_log_t *log, u_char *buf, size_t len);
 
 
 void ngx_process_events_and_timers(ngx_cycle_t *cycle);
-ngx_int_t ngx_handle_read_event(ngx_event_t *rev, ngx_uint_t flags);
+ngx_int_t ngx_handle_read_event(ngx_event_t *rev, u_int flags);
 ngx_int_t ngx_handle_write_event(ngx_event_t *wev, size_t lowat);
 
 

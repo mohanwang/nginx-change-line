@@ -226,7 +226,6 @@ static ngx_int_t
 ngx_http_memcached_create_request(ngx_http_request_t *r)
 {
     size_t                          len;
-    uintptr_t                       escape;
     ngx_buf_t                      *b;
     ngx_chain_t                    *cl;
     ngx_http_memcached_ctx_t       *ctx;
@@ -243,9 +242,10 @@ ngx_http_memcached_create_request(ngx_http_request_t *r)
         return NGX_ERROR;
     }
 
-    escape = 2 * ngx_escape_uri(NULL, vv->data, vv->len, NGX_ESCAPE_MEMCACHED);
-
-    len = sizeof("get ") - 1 + vv->len + escape + sizeof(CRLF) - 1;
+    len = sizeof("get ") - 1 + vv->len + sizeof(CRLF) - 1;
+    if (vv->len) {
+        len += 1 + vv->len;
+    }
 
     b = ngx_create_temp_buf(r->pool, len);
     if (b == NULL) {
@@ -268,13 +268,7 @@ ngx_http_memcached_create_request(ngx_http_request_t *r)
 
     ctx->key.data = b->last;
 
-    if (escape == 0) {
-        b->last = ngx_copy(b->last, vv->data, vv->len);
-
-    } else {
-        b->last = (u_char *) ngx_escape_uri(b->last, vv->data, vv->len,
-                                            NGX_ESCAPE_MEMCACHED);
-    }
+    b->last = ngx_copy(b->last, vv->data, vv->len);
 
     ctx->key.len = b->last - ctx->key.data;
 
@@ -371,7 +365,6 @@ found:
         }
 
         u->headers_in.status_n = 200;
-        u->state->status = 200;
         u->buffer.pos = p + 1;
 
         return NGX_OK;
@@ -382,7 +375,6 @@ found:
                       "key: \"%V\" was not found by memcached", &ctx->key);
 
         u->headers_in.status_n = 404;
-        u->state->status = 404;
 
         return NGX_OK;
     }
@@ -427,16 +419,16 @@ ngx_http_memcached_filter(void *data, ssize_t bytes)
     if (u->length == ctx->rest) {
 
         if (ngx_strncmp(b->last,
-                   ngx_http_memcached_end + NGX_HTTP_MEMCACHED_END - ctx->rest,
-                   ctx->rest)
-            != 0)
+                        ngx_http_memcached_end + NGX_HTTP_MEMCACHED_END
+                                                 - ctx->rest,
+                        bytes) != 0)
         {
             ngx_log_error(NGX_LOG_ERR, ctx->request->connection->log, 0,
                           "memcached sent invalid trailer");
         }
 
-        u->length = 0;
-        ctx->rest = 0;
+        u->length -= bytes;
+        ctx->rest -= bytes;
 
         return NGX_OK;
     }
@@ -455,8 +447,7 @@ ngx_http_memcached_filter(void *data, ssize_t bytes)
 
     *ll = cl;
 
-    last = b->last;
-    cl->buf->pos = last;
+    cl->buf->pos = b->last;
     b->last += bytes;
     cl->buf->last = b->last;
 
@@ -464,19 +455,20 @@ ngx_http_memcached_filter(void *data, ssize_t bytes)
                    "memcached filter bytes:%z size:%z length:%z rest:%z",
                    bytes, b->last - b->pos, u->length, ctx->rest);
 
-    if (bytes <= (ssize_t) (u->length - NGX_HTTP_MEMCACHED_END)) {
+    if (b->last - b->pos <= (ssize_t) (u->length - NGX_HTTP_MEMCACHED_END)) {
         u->length -= bytes;
         return NGX_OK;
     }
 
-    last += u->length - NGX_HTTP_MEMCACHED_END;
+
+    last = b->pos + u->length - NGX_HTTP_MEMCACHED_END;
 
     if (ngx_strncmp(last, ngx_http_memcached_end, b->last - last) != 0) {
         ngx_log_error(NGX_LOG_ERR, ctx->request->connection->log, 0,
                       "memcached sent invalid trailer");
     }
 
-    ctx->rest -= b->last - last;
+    ctx->rest = u->length - (b->last - b->pos);
     b->last = last;
     cl->buf->last = last;
     u->length = ctx->rest;

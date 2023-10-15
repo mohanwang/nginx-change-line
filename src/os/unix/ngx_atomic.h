@@ -87,17 +87,10 @@ ngx_atomic_cmp_set(ngx_atomic_t *lock, ngx_atomic_uint_t old,
 ngx_atomic_int_t
 ngx_atomic_fetch_add(ngx_atomic_t *value, ngx_atomic_int_t add);
 
-/*
- * Sun Studio 12 exits with segmentation fault on '__asm ("pause")',
- * so ngx_cpu_pause is declared in src/os/unix/ngx_sunpro_x86.il
- */
-
-void
-ngx_cpu_pause(void);
-
 /* the code in src/os/unix/ngx_sunpro_x86.il */
 
 #define ngx_memory_barrier()        __asm (".volatile"); __asm (".nonvolatile")
+#define ngx_cpu_pause()             __asm ("pause")
 
 
 #else /* ( __GNUC__ || __INTEL_COMPILER ) */
@@ -128,17 +121,10 @@ ngx_atomic_cmp_set(ngx_atomic_t *lock, ngx_atomic_uint_t old,
 ngx_atomic_int_t
 ngx_atomic_fetch_add(ngx_atomic_t *value, ngx_atomic_int_t add);
 
-/*
- * Sun Studio 12 exits with segmentation fault on '__asm ("pause")',
- * so ngx_cpu_pause is declared in src/os/unix/ngx_sunpro_amd64.il
- */
-
-void
-ngx_cpu_pause(void);
-
 /* the code in src/os/unix/ngx_sunpro_amd64.il */
 
 #define ngx_memory_barrier()        __asm (".volatile"); __asm (".nonvolatile")
+#define ngx_cpu_pause()             __asm ("pause")
 
 
 #else /* ( __GNUC__ || __INTEL_COMPILER ) */
@@ -150,7 +136,7 @@ ngx_cpu_pause(void);
 #endif
 
 
-#elif ( __sparc__ || __sparc || __sparcv9 )
+#elif ( __sparc__ || __sparcv9 )
 
 #if (NGX_PTR_SIZE == 8)
 

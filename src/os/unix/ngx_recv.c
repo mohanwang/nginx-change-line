@@ -11,8 +11,7 @@
 
 #if (NGX_HAVE_KQUEUE)
 
-ssize_t
-ngx_unix_recv(ngx_connection_t *c, u_char *buf, size_t size)
+ssize_t ngx_unix_recv(ngx_connection_t *c, u_char *buf, size_t size)
 {
     ssize_t       n;
     ngx_err_t     err;
@@ -78,6 +77,12 @@ ngx_unix_recv(ngx_connection_t *c, u_char *buf, size_t size)
                      * even if kqueue reported about available data
                      */
 
+#if 0
+                    ngx_log_error(NGX_LOG_ALERT, c->log, 0,
+                                  "recv() returned 0 while kevent() reported "
+                                  "%d available bytes", rev->available);
+#endif
+
                     rev->eof = 1;
                     rev->available = 0;
                 }
@@ -121,8 +126,7 @@ ngx_unix_recv(ngx_connection_t *c, u_char *buf, size_t size)
 
 #else /* ! NGX_HAVE_KQUEUE */
 
-ssize_t
-ngx_unix_recv(ngx_connection_t *c, u_char *buf, size_t size)
+ssize_t ngx_unix_recv(ngx_connection_t *c, u_char *buf, size_t size)
 {
     ssize_t       n;
     ngx_err_t     err;

@@ -117,7 +117,7 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
         cf->conf_file->file.name.len = filename->len;
         cf->conf_file->file.name.data = filename->data;
         cf->conf_file->file.offset = 0;
-        cf->conf_file->file.log = cf->log;
+        cf->conf_file->file.log = cf->log;;
         cf->conf_file->line = 1;
 
         block = 0;
@@ -366,7 +366,7 @@ not_allowed:
 invalid:
 
     ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                       "invalid number of arguments in \"%s\" directive",
+                       "invalid number arguments in \"%s\" directive",
                        name->data);
 
     return NGX_ERROR;
@@ -925,7 +925,7 @@ ngx_conf_set_str_array_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     a = (ngx_array_t **) (p + cmd->offset);
 
-    if (*a == NGX_CONF_UNSET_PTR) {
+    if (*a == NULL) {
         *a = ngx_array_create(cf->pool, 4, sizeof(ngx_str_t));
         if (*a == NULL) {
             return NGX_CONF_ERROR;

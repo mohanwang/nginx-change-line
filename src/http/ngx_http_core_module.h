@@ -38,8 +38,8 @@ typedef struct {
     in_port_t                  port;
     int                        family;
 
-    u_char                    *file_name;
-    ngx_uint_t                 line;
+    ngx_str_t                  file_name;
+    ngx_int_t                  line;
 
     ngx_http_listen_conf_t     conf;
 } ngx_http_listen_t;
@@ -79,7 +79,6 @@ struct ngx_http_phase_handler_s {
 typedef struct {
     ngx_http_phase_handler_t  *handlers;
     ngx_uint_t                 server_rewrite_index;
-    ngx_uint_t                 location_rewrite_index;
 } ngx_http_phase_engine_t;
 
 
@@ -118,8 +117,7 @@ typedef struct {
      */
     ngx_array_t                locations;
 
-    unsigned                   regex_start:15;
-    unsigned                   named_start:15;
+    unsigned                   regex_start:16;
     unsigned                   wildcard:1;
 
     /* array of the ngx_http_listen_t, "listen" directive */
@@ -143,7 +141,6 @@ typedef struct {
 
     ngx_flag_t                 optimize_server_names;
     ngx_flag_t                 ignore_invalid_headers;
-    ngx_flag_t                 merge_slashes;
 } ngx_http_core_srv_conf_t;
 
 
@@ -152,10 +149,8 @@ typedef struct {
 
 typedef struct {
     in_addr_t                  addr;
-
     /* the default server configuration for this address:port */
     ngx_http_core_srv_conf_t  *core_srv_conf;
-
     ngx_http_virtual_names_t  *virtual_names;
 } ngx_http_in_addr_t;
 
@@ -183,11 +178,6 @@ typedef struct {
 
     ngx_array_t                names;      /* array of ngx_http_server_name_t */
 
-#if (NGX_PCRE)
-    ngx_uint_t                 nregex;
-    ngx_http_server_name_t    *regex;
-#endif
-
     /* the default server configuration for this address:port */
     ngx_http_core_srv_conf_t  *core_srv_conf;
 
@@ -198,13 +188,10 @@ typedef struct {
 } ngx_http_conf_in_addr_t;
 
 
-struct ngx_http_server_name_s {
-#if (NGX_PCRE)
-    ngx_regex_t               *regex;
-#endif
-    ngx_http_core_srv_conf_t  *core_srv_conf; /* virtual name server conf */
+typedef struct {
     ngx_str_t                  name;
-};
+    ngx_http_core_srv_conf_t  *core_srv_conf; /* virtual name server conf */
+} ngx_http_server_name_t;
 
 
 typedef struct {
@@ -225,10 +212,9 @@ struct ngx_http_core_loc_conf_s {
     ngx_regex_t  *regex;
 #endif
 
-    unsigned      regex_start:15;
+    unsigned      regex_start:16;
 
-    unsigned      noname:1;   /* "if () {}" block or limit_except */
-    unsigned      named:1;
+    unsigned      noname:1;   /* "if () {}" block */
 
     unsigned      exact_match:1;
     unsigned      noregex:1;
@@ -285,7 +271,6 @@ struct ngx_http_core_loc_conf_s {
     ngx_flag_t    msie_refresh;            /* msie_refresh */
     ngx_flag_t    log_not_found;           /* log_not_found */
     ngx_flag_t    recursive_error_pages;   /* recursive_error_pages */
-    ngx_flag_t    server_tokens;           /* server_tokens */
 
     ngx_array_t  *error_pages;             /* error_page */
 
@@ -329,8 +314,6 @@ ngx_int_t ngx_http_subrequest(ngx_http_request_t *r,
     ngx_http_post_subrequest_t *psr, ngx_uint_t flags);
 ngx_int_t ngx_http_internal_redirect(ngx_http_request_t *r,
     ngx_str_t *uri, ngx_str_t *args);
-ngx_int_t ngx_http_named_location(ngx_http_request_t *r, ngx_str_t *name);
-
 
 ngx_http_cleanup_t *ngx_http_cleanup_add(ngx_http_request_t *r, size_t size);
 

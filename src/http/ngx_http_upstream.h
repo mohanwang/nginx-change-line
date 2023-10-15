@@ -91,7 +91,7 @@ struct ngx_http_upstream_srv_conf_s {
 
     ngx_uint_t                      flags;
     ngx_str_t                       host;
-    u_char                         *file_name;
+    ngx_str_t                       file_name;
     ngx_uint_t                      line;
     in_port_t                       port;
     in_port_t                       default_port;
@@ -118,7 +118,6 @@ typedef struct {
     size_t                          temp_file_write_size_conf;
 
     ngx_uint_t                      next_upstream;
-    ngx_uint_t                      store_access;
 
     ngx_bufs_t                      bufs;
 
@@ -141,10 +140,6 @@ typedef struct {
     ngx_str_t                       location;
     ngx_str_t                       url;  /* used in proxy_rewrite_location */
 
-    ngx_array_t                    *store_lengths;
-    ngx_array_t                    *store_values;
-
-    signed                          store:2;
     unsigned                        intercept_404:1;
     unsigned                        change_buffering:1;
 
@@ -194,8 +189,6 @@ typedef struct {
     ngx_table_elt_t                *content_encoding;
 #endif
 
-    off_t                           content_length_n;
-
     ngx_array_t                     cache_control;
 } ngx_http_upstream_headers_in_t;
 
@@ -244,8 +237,7 @@ struct ngx_http_upstream_s {
 
     ngx_http_cleanup_pt            *cleanup;
 
-    unsigned                        store:1;
-    unsigned                        cacheable:1;
+    unsigned                        cachable:1;
     unsigned                        accel:1;
 
     unsigned                        buffering:1;
@@ -261,9 +253,6 @@ ngx_int_t ngx_http_upstream_header_variable(ngx_http_request_t *r,
 void ngx_http_upstream_init(ngx_http_request_t *r);
 ngx_http_upstream_srv_conf_t *ngx_http_upstream_add(ngx_conf_t *cf,
     ngx_url_t *u, ngx_uint_t flags);
-ngx_int_t ngx_http_upstream_hide_headers_hash(ngx_conf_t *cf,
-    ngx_http_upstream_conf_t *conf, ngx_http_upstream_conf_t *prev,
-    ngx_str_t *default_hide_headers, ngx_hash_init_t *hash);
 
 
 #define ngx_http_conf_upstream_srv_conf(uscf, module)                         \

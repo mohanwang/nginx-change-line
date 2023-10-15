@@ -21,7 +21,7 @@ static ngx_int_t ngx_event_pipe_drain_chains(ngx_event_pipe_t *p);
 
 
 ngx_int_t
-ngx_event_pipe(ngx_event_pipe_t *p, ngx_int_t do_write)
+ngx_event_pipe(ngx_event_pipe_t *p, int do_write)
 {
     u_int         flags;
     ngx_event_t  *rev, *wev;
@@ -192,7 +192,7 @@ ngx_event_pipe_read_upstream(ngx_event_pipe_t *p)
                 chain->buf = b;
                 chain->next = NULL;
 
-            } else if (!p->cacheable
+            } else if (!p->cachable
                        && p->downstream->data == p->output_ctx
                        && p->downstream->write->ready
                        && !p->downstream->write->delayed)
@@ -209,7 +209,7 @@ ngx_event_pipe_read_upstream(ngx_event_pipe_t *p)
 
                 break;
 
-            } else if (p->cacheable
+            } else if (p->cachable
                        || p->temp_file->offset < p->max_temp_file_size)
             {
 
@@ -406,7 +406,7 @@ ngx_event_pipe_read_upstream(ngx_event_pipe_t *p)
         }
     }
 
-    if (p->cacheable && p->in) {
+    if (p->cachable && p->in) {
         if (ngx_event_pipe_write_chain_to_temp_file(p) == NGX_ABORT) {
             return NGX_ABORT;
         }
@@ -421,7 +421,6 @@ ngx_event_pipe_write_to_downstream(ngx_event_pipe_t *p)
 {
     u_char            *prev;
     size_t             bsize;
-    ngx_int_t          rc;
     ngx_uint_t         flush, prev_last_shadow;
     ngx_chain_t       *out, **ll, *cl;
     ngx_connection_t  *downstream;
@@ -452,13 +451,7 @@ ngx_event_pipe_write_to_downstream(ngx_event_pipe_t *p)
                     cl->buf->recycled = 0;
                 }
 
-                rc = p->output_filter(p->output_ctx, p->out);
-
-                if (downstream->destroyed) {
-                    return NGX_ABORT;
-                }
-
-                if (rc == NGX_ERROR) {
+                if (p->output_filter(p->output_ctx, p->out) == NGX_ERROR) {
                     p->downstream_error = 1;
                     return ngx_event_pipe_drain_chains(p);
                 }
@@ -474,13 +467,12 @@ ngx_event_pipe_write_to_downstream(ngx_event_pipe_t *p)
                     cl->buf->recycled = 0;
                 }
 
-                rc = p->output_filter(p->output_ctx, p->in);
+                if (p->output_filter(p->output_ctx, p->in) == NGX_ERROR) {
 
-                if (downstream->destroyed) {
-                    return NGX_ABORT;
-                }
+                    if (downstream->destroyed) {
+                        return NGX_ABORT;
+                    }
 
-                if (rc == NGX_ERROR) {
                     p->downstream_error = 1;
                     return ngx_event_pipe_drain_chains(p);
                 }
@@ -550,7 +542,7 @@ ngx_event_pipe_write_to_downstream(ngx_event_pipe_t *p)
 
                 ngx_event_pipe_free_shadow_raw_buf(&p->free_raw_bufs, cl->buf);
 
-            } else if (!p->cacheable && p->in) {
+            } else if (!p->cachable && p->in) {
                 cl = p->in;
 
                 ngx_log_debug3(NGX_LOG_DEBUG_EVENT, p->log, 0,
@@ -610,13 +602,7 @@ ngx_event_pipe_write_to_downstream(ngx_event_pipe_t *p)
             break;
         }
 
-        rc = p->output_filter(p->output_ctx, out);
-
-        if (downstream->destroyed) {
-            return NGX_ABORT;
-        }
-
-        if (rc == NGX_ERROR) {
+        if (p->output_filter(p->output_ctx, out) == NGX_ERROR) {
             p->downstream_error = 1;
             return ngx_event_pipe_drain_chains(p);
         }
@@ -626,7 +612,7 @@ ngx_event_pipe_write_to_downstream(ngx_event_pipe_t *p)
         for (cl = p->free; cl; cl = cl->next) {
 
             if (cl->buf->temp_file) {
-                if (p->cacheable || !p->cyclic_temp_file) {
+                if (p->cachable || !p->cyclic_temp_file) {
                     continue;
                 }
 
@@ -673,7 +659,7 @@ ngx_event_pipe_write_chain_to_temp_file(ngx_event_pipe_t *p)
         out = p->in;
     }
 
-    if (!p->cacheable) {
+    if (!p->cachable) {
 
         size = 0;
         cl = out;

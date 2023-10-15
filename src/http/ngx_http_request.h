@@ -168,7 +168,6 @@ typedef struct {
     ngx_table_elt_t                  *content_type;
 
     ngx_table_elt_t                  *range;
-    ngx_table_elt_t                  *if_range;
 
     ngx_table_elt_t                  *transfer_encoding;
 
@@ -276,15 +275,7 @@ typedef struct {
 } ngx_http_connection_t;
 
 
-typedef struct ngx_http_server_name_s  ngx_http_server_name_t;
-
-
-typedef struct {
-     ngx_hash_combined_t              names;
-
-     ngx_uint_t                       nregex;
-     ngx_http_server_name_t          *regex;
-} ngx_http_virtual_names_t;
+typedef ngx_hash_combined_t  ngx_http_virtual_names_t;
 
 
 typedef void (*ngx_http_cleanup_pt)(void *data);
@@ -450,7 +441,7 @@ struct ngx_http_request_s {
     unsigned                          limit_zone_set:1;
 
 #if 0
-    unsigned                          cacheable:1;
+    unsigned                          cachable:1;
 #endif
 
     unsigned                          pipeline:1;

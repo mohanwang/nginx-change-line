@@ -10,8 +10,7 @@
 #include <ngx_mail.h>
 
 
-ngx_int_t
-ngx_mail_pop3_parse_command(ngx_mail_session_t *s)
+ngx_int_t ngx_pop3_parse_command(ngx_mail_session_t *s)
 {
     u_char      ch, *p, *c, c0, c1, c2, c3;
     ngx_str_t  *arg;
@@ -208,8 +207,7 @@ invalid:
 }
 
 
-ngx_int_t
-ngx_mail_imap_parse_command(ngx_mail_session_t *s)
+ngx_int_t ngx_imap_parse_command(ngx_mail_session_t *s)
 {
     u_char      ch, *p, *c;
     ngx_str_t  *arg;
@@ -356,27 +354,6 @@ ngx_mail_imap_parse_command(ngx_mail_session_t *s)
                     }
                     break;
 
-                case 12:
-                    if ((c[0] == 'A'|| c[0] == 'a')
-                        && (c[1] == 'U'|| c[1] == 'u')
-                        && (c[2] == 'T'|| c[2] == 't')
-                        && (c[3] == 'H'|| c[3] == 'h')
-                        && (c[4] == 'E'|| c[4] == 'e')
-                        && (c[5] == 'N'|| c[5] == 'n')
-                        && (c[6] == 'T'|| c[6] == 't')
-                        && (c[7] == 'I'|| c[7] == 'i')
-                        && (c[8] == 'C'|| c[8] == 'c')
-                        && (c[9] == 'A'|| c[9] == 'a')
-                        && (c[10] == 'T'|| c[10] == 't')
-                        && (c[11] == 'E'|| c[11] == 'e'))
-                    {
-                        s->command = NGX_IMAP_AUTHENTICATE;
-
-                    } else {
-                        goto invalid;
-                    }
-                    break;
-
                 default:
                     goto invalid;
                 }
@@ -436,10 +413,6 @@ ngx_mail_imap_parse_command(ngx_mail_session_t *s)
             break;
 
         case sw_argument:
-            if (ch == ' ' && s->quoted) {
-                break;
-            }
-
             switch (ch) {
             case '"':
                 if (!s->quoted) {
@@ -600,7 +573,7 @@ done:
         s->literal_len = 0;
     }
 
-    s->state = (s->command != NGX_IMAP_AUTHENTICATE) ? sw_start : sw_argument;
+    s->state = sw_start;
 
     return NGX_OK;
 
@@ -615,8 +588,7 @@ invalid:
 }
 
 
-ngx_int_t
-ngx_mail_smtp_parse_command(ngx_mail_session_t *s)
+ngx_int_t ngx_smtp_parse_command(ngx_mail_session_t *s)
 {
     u_char      ch, *p, *c, c0, c1, c2, c3;
     ngx_str_t  *arg;
@@ -674,43 +646,10 @@ ngx_mail_smtp_parse_command(ngx_mail_session_t *s)
                     {
                         s->command = NGX_SMTP_RSET;
 
-                    } else if (c0 == 'R' && c1 == 'C' && c2 == 'P' && c3 == 'T')
-                    {
-                        s->command = NGX_SMTP_RCPT;
-
-                    } else if (c0 == 'V' && c1 == 'R' && c2 == 'F' && c3 == 'Y')
-                    {
-                        s->command = NGX_SMTP_VRFY;
-
-                    } else if (c0 == 'E' && c1 == 'X' && c2 == 'P' && c3 == 'N')
-                    {
-                        s->command = NGX_SMTP_EXPN;
-
-                    } else if (c0 == 'H' && c1 == 'E' && c2 == 'L' && c3 == 'P')
-                    {
-                        s->command = NGX_SMTP_HELP;
-
                     } else {
                         goto invalid;
                     }
-#if (NGX_MAIL_SSL)
-                } else if (p - c == 8) {
 
-                    if ((c[0] == 'S'|| c[0] == 's')
-                        && (c[1] == 'T'|| c[1] == 't')
-                        && (c[2] == 'A'|| c[2] == 'a')
-                        && (c[3] == 'R'|| c[3] == 'r')
-                        && (c[4] == 'T'|| c[4] == 't')
-                        && (c[5] == 'T'|| c[5] == 't')
-                        && (c[6] == 'L'|| c[6] == 'l')
-                        && (c[7] == 'S'|| c[7] == 's'))
-                    {
-                        s->command = NGX_SMTP_STARTTLS;
-
-                    } else {
-                        goto invalid;
-                    }
-#endif
                 } else {
                     goto invalid;
                 }
@@ -822,59 +761,6 @@ invalid:
 
     s->state = sw_start;
     s->arg_start = NULL;
-
-    return NGX_MAIL_PARSE_INVALID_COMMAND;
-}
-
-
-ngx_int_t
-ngx_mail_auth_parse(ngx_mail_session_t *s, ngx_connection_t *c)
-{
-    ngx_str_t                 *arg;
-
-#if (NGX_MAIL_SSL)
-    if (ngx_mail_starttls_only(s, c)) {
-        return NGX_MAIL_PARSE_INVALID_COMMAND;
-    }
-#endif
-
-    arg = s->args.elts;
-
-    if (arg[0].len == 5) {
-
-        if (ngx_strncasecmp(arg[0].data, (u_char *) "LOGIN", 5) == 0) {
-
-            if (s->args.nelts == 1) {
-                return NGX_MAIL_AUTH_LOGIN;
-            }
-
-            return NGX_MAIL_PARSE_INVALID_COMMAND;
-        }
-
-        if (ngx_strncasecmp(arg[0].data, (u_char *) "PLAIN", 5) == 0) {
-
-            if (s->args.nelts == 1) {
-                return NGX_MAIL_AUTH_PLAIN;
-            }
-
-            if (s->args.nelts == 2) {
-                return ngx_mail_auth_plain(s, c, 1);
-            }
-        }
-
-        return NGX_MAIL_PARSE_INVALID_COMMAND;
-    }
-
-    if (arg[0].len == 8) {
-
-        if (s->args.nelts != 1) {
-            return NGX_MAIL_PARSE_INVALID_COMMAND;
-        }
-
-        if (ngx_strncasecmp(arg[0].data, (u_char *) "CRAM-MD5", 8) == 0) {
-            return NGX_MAIL_AUTH_CRAM_MD5;
-        }
-    }
 
     return NGX_MAIL_PARSE_INVALID_COMMAND;
 }

@@ -16,11 +16,9 @@
 
 static ngx_int_t ngx_aio_init(ngx_cycle_t *cycle, ngx_msec_t timer);
 static void ngx_aio_done(ngx_cycle_t *cycle);
-static ngx_int_t ngx_aio_add_event(ngx_event_t *ev, ngx_int_t event,
-    ngx_uint_t flags);
-static ngx_int_t ngx_aio_del_event(ngx_event_t *ev, ngx_int_t event,
-    ngx_uint_t flags);
-static ngx_int_t ngx_aio_del_connection(ngx_connection_t *c, ngx_uint_t flags);
+static ngx_int_t ngx_aio_add_event(ngx_event_t *ev, int event, u_int flags);
+static ngx_int_t ngx_aio_del_event(ngx_event_t *ev, int event, u_int flags);
+static ngx_int_t ngx_aio_del_connection(ngx_connection_t *c, u_int flags);
 static ngx_int_t ngx_aio_process_events(ngx_cycle_t *cycle, ngx_msec_t timer,
     ngx_uint_t flags);
 
@@ -102,21 +100,21 @@ ngx_aio_done(ngx_cycle_t *cycle)
 /* the event adding and deleting are needed for the listening sockets */
 
 static ngx_int_t
-ngx_aio_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
+ngx_aio_add_event(ngx_event_t *ev, int event, u_int flags)
 {
     return ngx_kqueue_module_ctx.actions.add(ev, event, flags);
 }
 
 
 static ngx_int_t
-ngx_aio_del_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
+ngx_aio_del_event(ngx_event_t *ev, int event, u_int flags)
 {
     return ngx_kqueue_module_ctx.actions.del(ev, event, flags);
 }
 
 
 static ngx_int_t
-ngx_aio_del_connection(ngx_connection_t *c, ngx_uint_t flags)
+ngx_aio_del_connection(ngx_connection_t *c, u_int flags)
 {
     int  rc;
 

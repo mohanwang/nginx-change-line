@@ -40,14 +40,10 @@ typedef struct  port_notify {
     void       *portnfy_user;   /* user defined */
 } port_notify_t;
 
-#if (__FreeBSD_version < 700005)
-
-typedef struct itimerspec {     /* definition per POSIX.4 */
-    struct timespec it_interval;/* timer period */
-    struct timespec it_value;   /* timer expiration */
+typedef struct itimerspec {         /* definition per POSIX.4 */
+    struct timespec it_interval;    /* timer period */
+    struct timespec it_value;       /* timer expiration */
 } itimerspec_t;
-
-#endif
 
 int port_create(void)
 {
@@ -91,16 +87,16 @@ int timer_delete(timer_t timerid)
 
 
 typedef struct {
-    ngx_uint_t  events;
+    u_int  events;
 } ngx_eventport_conf_t;
 
 
 static ngx_int_t ngx_eventport_init(ngx_cycle_t *cycle, ngx_msec_t timer);
 static void ngx_eventport_done(ngx_cycle_t *cycle);
-static ngx_int_t ngx_eventport_add_event(ngx_event_t *ev, ngx_int_t event,
-    ngx_uint_t flags);
-static ngx_int_t ngx_eventport_del_event(ngx_event_t *ev, ngx_int_t event,
-    ngx_uint_t flags);
+static ngx_int_t ngx_eventport_add_event(ngx_event_t *ev, int event,
+    u_int flags);
+static ngx_int_t ngx_eventport_del_event(ngx_event_t *ev, int event,
+    u_int flags);
 static ngx_int_t ngx_eventport_process_events(ngx_cycle_t *cycle,
     ngx_msec_t timer, ngx_uint_t flags);
 
@@ -109,8 +105,8 @@ static char *ngx_eventport_init_conf(ngx_cycle_t *cycle, void *conf);
 
 static int            ep = -1;
 static port_event_t  *event_list;
-static ngx_uint_t     nevents;
-static timer_t        event_timer = (timer_t) -1;
+static u_int          nevents;
+static timer_t        event_timer = -1;
 
 static ngx_str_t      eventport_name = ngx_string("eventport");
 
@@ -241,13 +237,13 @@ ngx_eventport_init(ngx_cycle_t *cycle, ngx_msec_t timer)
 static void
 ngx_eventport_done(ngx_cycle_t *cycle)
 {
-    if (event_timer != (timer_t) -1) {
+    if (event_timer != -1) {
         if (timer_delete(event_timer) == -1) {
             ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
                           "timer_delete() failed");
         }
 
-        event_timer = (timer_t) -1;
+        event_timer = -1;
     }
 
     if (close(ep) == -1) {
@@ -265,9 +261,9 @@ ngx_eventport_done(ngx_cycle_t *cycle)
 
 
 static ngx_int_t
-ngx_eventport_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
+ngx_eventport_add_event(ngx_event_t *ev, int event, u_int flags)
 {
-    ngx_int_t          events, prev;
+    int                events, prev;
     ngx_event_t       *e;
     ngx_connection_t  *c;
 
@@ -295,7 +291,7 @@ ngx_eventport_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
     }
 
     ngx_log_debug2(NGX_LOG_DEBUG_EVENT, ev->log, 0,
-                   "eventport add event: fd:%d ev:%04Xi", c->fd, events);
+                   "eventport add event: fd:%d ev:%04Xd", c->fd, events);
 
     if (port_associate(ep, PORT_SOURCE_FD, c->fd, events,
                        (void *) ((uintptr_t) ev | ev->instance))
@@ -314,7 +310,7 @@ ngx_eventport_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
 
 
 static ngx_int_t
-ngx_eventport_del_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
+ngx_eventport_del_event(ngx_event_t *ev, int event, u_int flags)
 {
     ngx_event_t       *e;
     ngx_connection_t  *c;
@@ -344,7 +340,7 @@ ngx_eventport_del_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
 
     if (e->oneshot) {
         ngx_log_debug2(NGX_LOG_DEBUG_EVENT, ev->log, 0,
-                       "eventport change event: fd:%d ev:%04Xi", c->fd, event);
+                       "eventport change event: fd:%d ev:%04Xd", c->fd, event);
 
         if (port_associate(ep, PORT_SOURCE_FD, c->fd, event,
                            (void *) ((uintptr_t) ev | ev->instance))
@@ -400,7 +396,7 @@ ngx_eventport_process_events(ngx_cycle_t *cycle, ngx_msec_t timer,
 
     events = 1;
 
-    n = port_getn(ep, event_list, (u_int) nevents, &events, tp);
+    n = port_getn(ep, event_list, nevents, &events, tp);
 
     err = ngx_errno;
 
@@ -518,10 +514,6 @@ ngx_eventport_process_events(ngx_cycle_t *cycle, ngx_msec_t timer,
 
                 } else {
                     rev->handler(rev);
-
-                    if (ev->closed) {
-                        continue;
-                    }
                 }
 
                 if (rev->accept) {

@@ -66,19 +66,16 @@ int epoll_wait(int epfd, struct epoll_event *events, int nevents, int timeout)
 
 
 typedef struct {
-    ngx_uint_t  events;
+    u_int  events;
 } ngx_epoll_conf_t;
 
 
 static ngx_int_t ngx_epoll_init(ngx_cycle_t *cycle, ngx_msec_t timer);
 static void ngx_epoll_done(ngx_cycle_t *cycle);
-static ngx_int_t ngx_epoll_add_event(ngx_event_t *ev, ngx_int_t event,
-    ngx_uint_t flags);
-static ngx_int_t ngx_epoll_del_event(ngx_event_t *ev, ngx_int_t event,
-    ngx_uint_t flags);
+static ngx_int_t ngx_epoll_add_event(ngx_event_t *ev, int event, u_int flags);
+static ngx_int_t ngx_epoll_del_event(ngx_event_t *ev, int event, u_int flags);
 static ngx_int_t ngx_epoll_add_connection(ngx_connection_t *c);
-static ngx_int_t ngx_epoll_del_connection(ngx_connection_t *c,
-    ngx_uint_t flags);
+static ngx_int_t ngx_epoll_del_connection(ngx_connection_t *c, u_int flags);
 static ngx_int_t ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer,
     ngx_uint_t flags);
 
@@ -87,7 +84,7 @@ static char *ngx_epoll_init_conf(ngx_cycle_t *cycle, void *conf);
 
 static int                  ep = -1;
 static struct epoll_event  *event_list;
-static ngx_uint_t           nevents;
+static u_int                nevents;
 
 
 static ngx_str_t      epoll_name = ngx_string("epoll");
@@ -208,7 +205,7 @@ ngx_epoll_done(ngx_cycle_t *cycle)
 
 
 static ngx_int_t
-ngx_epoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
+ngx_epoll_add_event(ngx_event_t *ev, int event, u_int flags)
 {
     int                  op;
     uint32_t             events, prev;
@@ -243,7 +240,7 @@ ngx_epoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
         op = EPOLL_CTL_ADD;
     }
 
-    ee.events = events | (uint32_t) flags;
+    ee.events = events | flags;
     ee.data.ptr = (void *) ((uintptr_t) c | ev->instance);
 
     ngx_log_debug3(NGX_LOG_DEBUG_EVENT, ev->log, 0,
@@ -266,7 +263,7 @@ ngx_epoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
 
 
 static ngx_int_t
-ngx_epoll_del_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
+ngx_epoll_del_event(ngx_event_t *ev, int event, u_int flags)
 {
     int                  op;
     uint32_t             prev;
@@ -298,7 +295,7 @@ ngx_epoll_del_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
 
     if (e->active) {
         op = EPOLL_CTL_MOD;
-        ee.events = prev | (uint32_t) flags;
+        ee.events = prev | flags;
         ee.data.ptr = (void *) ((uintptr_t) c | ev->instance);
 
     } else {
@@ -348,10 +345,10 @@ ngx_epoll_add_connection(ngx_connection_t *c)
 
 
 static ngx_int_t
-ngx_epoll_del_connection(ngx_connection_t *c, ngx_uint_t flags)
+ngx_epoll_del_connection(ngx_connection_t *c, u_int flags)
 {
-    int                 op;
-    struct epoll_event  ee;
+    int                  op;
+    struct epoll_event   ee;
 
     /*
      * when the file descriptor is closed the epoll automatically deletes
@@ -402,7 +399,7 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                    "epoll timer: %M", timer);
 
-    events = epoll_wait(ep, event_list, (int) nevents, timer);
+    events = epoll_wait(ep, event_list, nevents, timer);
 
     if (events == -1) {
         err = ngx_errno;

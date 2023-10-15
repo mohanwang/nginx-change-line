@@ -187,7 +187,7 @@ ngx_http_charset_header_filter(ngx_http_request_t *r)
 {
     u_char                        *ct;
     ngx_int_t                      charset, source_charset;
-    ngx_str_t                     *mc, *from, *to, s;
+    ngx_str_t                     *mc, *from, *to;
     ngx_uint_t                     n;
     ngx_http_charset_t            *charsets;
     ngx_http_charset_ctx_t        *ctx;
@@ -256,10 +256,8 @@ ngx_http_charset_header_filter(ngx_http_request_t *r)
                     return NGX_ERROR;
                 }
 
-                s.len = vv->len;
-                s.data = vv->data;
-
-                charset = ngx_http_charset_get_charset(charsets, n, &s);
+                charset = ngx_http_charset_get_charset(charsets, n,
+                                                       (ngx_str_t *) vv);
             }
         }
 
@@ -305,10 +303,8 @@ ngx_http_charset_header_filter(ngx_http_request_t *r)
                 return NGX_ERROR;
             }
 
-            s.len = vv->len;
-            s.data = vv->data;
-
-            source_charset = ngx_http_charset_get_charset(charsets, n, &s);
+            source_charset = ngx_http_charset_get_charset(charsets, n,
+                                                          (ngx_str_t *) vv);
         }
 
         if (charset != NGX_HTTP_NO_CHARSET) {
@@ -366,8 +362,8 @@ ngx_http_charset_header_filter(ngx_http_request_t *r)
 no_charset_map:
 
     ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                  "no \"charset_map\" between the charsets \"%V\" and \"%V\"",
-                  from, to);
+                  "no \"charset_map\" between the charsets "
+                  "\"%V\" and \"%V\"", from, to);
 
     return ngx_http_next_header_filter(r);
 }
@@ -377,16 +373,17 @@ static ngx_int_t
 ngx_http_charset_get_charset(ngx_http_charset_t *charsets, ngx_uint_t n,
     ngx_str_t *charset)
 {
+    size_t      len;
     ngx_uint_t  i;
 
+    len = charset->len & 0xffff;
+
     for (i = 0; i < n; i++) {
-        if (charsets[i].name.len != charset->len) {
+        if (charsets[i].name.len != len) {
             continue;
         }
 
-        if (ngx_strncasecmp(charsets[i].name.data, charset->data, charset->len)
-            == 0)
-        {
+        if (ngx_strncasecmp(charsets[i].name.data, charset->data, len) == 0) {
             return i;
         }
     }
@@ -1462,12 +1459,6 @@ ngx_http_charset_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
         return NGX_CONF_OK;
     }
 
-    if (conf->source_charset >= NGX_HTTP_CHARSET_VAR
-        || conf->charset >= NGX_HTTP_CHARSET_VAR)
-    {
-        return NGX_CONF_OK;
-    }
-
     mcf = ngx_http_conf_get_module_main_conf(cf,
                                              ngx_http_charset_filter_module);
     recode = mcf->recodes.elts;
@@ -1525,8 +1516,9 @@ ngx_http_charset_postconfiguration(ngx_conf_t *cf)
         }
 
         ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
-                   "no \"charset_map\" between the charsets \"%V\" and \"%V\"",
-                   &charset[c].name, &charset[recode[i].dst].name);
+                      " no \"charset_map\" between the charsets "
+                      "\"%V\" and \"%V\"",
+                      &charset[c].name, &charset[recode[i].dst].name);
         return NGX_ERROR;
 
     next:

@@ -17,7 +17,7 @@ if [ $PCRE != NONE ]; then
             CORE_LIBS="$CORE_LIBS $PCRE/pcre.lib"
         ;;
 
-        icc* )
+        icc* | sunc )
             have=NGX_PCRE . auto/have
             CORE_DEPS="$CORE_DEPS $PCRE/pcre.h"
 
@@ -25,18 +25,13 @@ if [ $PCRE != NONE ]; then
 
             echo $ngx_n "checking for PCRE library ...$ngx_c"
 
-            if [ -f $PCRE/pcre.h ]; then
+            if [ -e $PCRE/pcre.h ]; then
                 ngx_pcre_ver=`grep PCRE_MAJOR $PCRE/pcre.h \
                               | sed -e 's/^.*PCRE_MAJOR.* \(.*\)$/\1/'`
 
-            else if [ -f $PCRE/configure.in ]; then
+            else
                 ngx_pcre_ver=`grep PCRE_MAJOR= $PCRE/configure.in \
                               | sed -e 's/^.*=\(.*\)$/\1/'`
-
-            else
-                ngx_pcre_ver=`grep pcre_major, $PCRE/configure.ac \
-                              | sed -e 's/^.*pcre_major,.*\[\(.*\)\].*$/\1/'`
-            fi
             fi
 
             echo " $ngx_pcre_ver major version found"
@@ -77,6 +72,7 @@ if [ $PCRE != NONE ]; then
             CORE_DEPS="$CORE_DEPS $PCRE/pcre.h"
             LINK_DEPS="$LINK_DEPS $PCRE/.libs/libpcre.a"
             CORE_LIBS="$CORE_LIBS $PCRE/.libs/libpcre.a"
+            #CORE_LIBS="$CORE_LIBS -L $PCRE/.libs -lpcre"
         ;;
 
     esac
@@ -110,13 +106,7 @@ else
             ngx_feature_run=no
             ngx_feature_incs="#include <pcre.h>"
             ngx_feature_path="/usr/local/include"
-
-            if [ $NGX_RPATH = YES ]; then
-                ngx_feature_libs="-R/usr/local/lib -L/usr/local/lib -lpcre"
-            else
-                ngx_feature_libs="-L/usr/local/lib -lpcre"
-            fi
-
+            ngx_feature_libs="-L /usr/local/lib -lpcre"
             ngx_feature_test="pcre *re;
                               re = pcre_compile(NULL, 0, NULL, 0, NULL)"
             . auto/feature
@@ -165,13 +155,7 @@ else
                 ngx_feature_run=no
                 ngx_feature_incs="#include <pcre.h>"
                 ngx_feature_path="/usr/pkg/include"
-
-                if [ $NGX_RPATH = YES ]; then
-                    ngx_feature_libs="-R/usr/pkg/lib -L/usr/pkg/lib -lpcre"
-                else
-                    ngx_feature_libs="-L/usr/pkg/lib -lpcre"
-                fi
-
+                ngx_feature_libs="-L /usr/pkg/lib -lpcre"
                 ngx_feature_test="pcre *re;
                                   re = pcre_compile(NULL, 0, NULL, 0, NULL)"
                 . auto/feature
@@ -196,13 +180,7 @@ else
                 ngx_feature_run=no
                 ngx_feature_incs="#include <pcre.h>"
                 ngx_feature_path="/opt/local/include"
-
-                if [ $NGX_RPATH = YES ]; then
-                    ngx_feature_libs="-R/opt/local/lib -L/opt/local/lib -lpcre"
-                else
-                    ngx_feature_libs="-L/opt/local/lib -lpcre"
-                fi
-
+                ngx_feature_libs="-L/opt/local/lib -lpcre"
                 ngx_feature_test="pcre *re;
                                   re = pcre_compile(NULL, 0, NULL, 0, NULL)"
                 . auto/feature

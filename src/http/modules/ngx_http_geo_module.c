@@ -86,7 +86,7 @@ ngx_http_geo_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v,
     *v = *vv;
 
     ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                   "http geo: %V %v", &r->connection->addr_text, v);
+                   "http geo: %V %V", &r->connection->addr_text, v);
 
     return NGX_OK;
 }
@@ -100,8 +100,8 @@ ngx_http_geo_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_conf_t                save;
     ngx_pool_t               *pool;
     ngx_radix_tree_t         *tree;
-    ngx_http_variable_t      *var;
     ngx_http_geo_conf_ctx_t   ctx;
+    ngx_http_variable_t  *var;
 
     value = cf->args->elts;
 
@@ -116,7 +116,7 @@ ngx_http_geo_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         name.data++;
     }
 
-    var = ngx_http_add_variable(cf, &name, NGX_HTTP_VAR_CHANGEABLE);
+    var = ngx_http_add_variable(cf, &name, NGX_HTTP_VAR_CHANGABLE);
     if (var == NULL) {
         return NGX_CONF_ERROR;
     }
@@ -212,18 +212,10 @@ ngx_http_geo(ngx_conf_t *cf, ngx_command_t *dummy, void *conf)
         cidrin.mask = 0;
 
     } else {
-        rc = ngx_ptocidr(&value[0], &cidrin);
-
-        if (rc == NGX_ERROR) {
+        if (ngx_ptocidr(&value[0], &cidrin) == NGX_ERROR) {
             ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                "invalid parameter \"%V\"", &value[0]);
             return NGX_CONF_ERROR;
-        }
-
-        if (rc == NGX_DONE) {
-            ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
-                               "low address bits of %V are meaningless",
-                               &value[0]);
         }
 
         cidrin.addr = ntohl(cidrin.addr);
@@ -257,7 +249,7 @@ ngx_http_geo(ngx_conf_t *cf, ngx_command_t *dummy, void *conf)
         }
 
         var->valid = 1;
-        var->no_cacheable = 0;
+        var->no_cachable = 0;
         var->not_found = 0;
 
         v = ngx_array_push(&ctx->values);
@@ -285,8 +277,9 @@ ngx_http_geo(ngx_conf_t *cf, ngx_command_t *dummy, void *conf)
                     ngx_radix32tree_find(ctx->tree, cidrin.addr & cidrin.mask);
 
         ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
-                "duplicate parameter \"%V\", value: \"%v\", old value: \"%v\"",
-                &value[0], var, old);
+                           "duplicate parameter \"%V\", value: \"%V\", "
+                           "old value: \"%V\"",
+                           &value[0], var, old);
 
         rc = ngx_radix32tree_delete(ctx->tree, cidrin.addr, cidrin.mask);
 

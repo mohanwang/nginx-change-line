@@ -212,7 +212,6 @@ static ngx_str_t ngx_http_ssi_null_string = ngx_null_string;
 
 #define  NGX_HTTP_SSI_ECHO_VAR         0
 #define  NGX_HTTP_SSI_ECHO_DEFAULT     1
-#define  NGX_HTTP_SSI_ECHO_ENCODING    2
 
 #define  NGX_HTTP_SSI_CONFIG_ERRMSG    0
 #define  NGX_HTTP_SSI_CONFIG_TIMEFMT   1
@@ -238,7 +237,6 @@ static ngx_http_ssi_param_t  ngx_http_ssi_include_params[] = {
 static ngx_http_ssi_param_t  ngx_http_ssi_echo_params[] = {
     { ngx_string("var"), NGX_HTTP_SSI_ECHO_VAR, 1, 0 },
     { ngx_string("default"), NGX_HTTP_SSI_ECHO_DEFAULT, 0, 0 },
-    { ngx_string("encoding"), NGX_HTTP_SSI_ECHO_ENCODING, 0, 0 },
     { ngx_null_string, 0, 0, 0 }
 };
 
@@ -303,10 +301,10 @@ static ngx_http_ssi_command_t  ngx_http_ssi_commands[] = {
 static ngx_http_variable_t  ngx_http_ssi_vars[] = {
 
     { ngx_string("date_local"), NULL, ngx_http_ssi_date_gmt_local_variable, 0,
-      NGX_HTTP_VAR_NOCACHEABLE, 0 },
+      NGX_HTTP_VAR_NOCACHABLE, 0 },
 
     { ngx_string("date_gmt"), NULL, ngx_http_ssi_date_gmt_local_variable, 1,
-      NGX_HTTP_VAR_NOCACHEABLE, 0 },
+      NGX_HTTP_VAR_NOCACHABLE, 0 },
 
     { ngx_null_string, NULL, NULL, 0, 0, 0 }
 };
@@ -357,7 +355,6 @@ found:
     ctx->value_len = slcf->value_len;
     ctx->last_out = &ctx->out;
 
-    ctx->encoding = NGX_HTTP_SSI_ENTITY_ENCODING;
     ctx->output = 1;
 
     ctx->params.elts = ctx->params_array;
@@ -442,8 +439,6 @@ ngx_http_ssi_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
                 if (rc == NGX_ERROR || rc == NGX_AGAIN) {
                     return rc;
                 }
-
-                break;
             }
         }
 
@@ -558,9 +553,8 @@ ngx_http_ssi_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
                     if (b->in_file) {
                         if (slcf->min_file_chunk < (size_t) (b->last - b->pos))
                         {
-                            b->file_last = b->file_pos
-                                                   + (b->last - ctx->buf->pos);
-                            b->file_pos += b->pos - ctx->buf->pos;
+                            b->file_last = b->file_pos + (b->last - b->start);
+                            b->file_pos += b->pos - b->start;
 
                         } else {
                             b->in_file = 0;
@@ -806,14 +800,8 @@ ngx_http_ssi_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
                     }
                 }
 
-                if (cmd->flush) {
-
-                    if (ctx->out) {
-                        rc = ngx_http_ssi_output(r, ctx);
-
-                    } else {
-                        rc = ngx_http_next_body_filter(r, NULL);
-                    }
+                if (cmd->flush && ctx->out) {
+                    rc = ngx_http_ssi_output(r, ctx);
 
                     if (rc == NGX_ERROR) {
                         return NGX_ERROR;
@@ -1032,7 +1020,6 @@ ngx_http_ssi_parse(ngx_http_request_t *r, ngx_http_ssi_ctx_t *ctx)
                 ch = *p;
             }
 
-            ctx->state = state;
             ctx->pos = p;
             ctx->looked = looked;
             ctx->copy_end = p;
@@ -1859,8 +1846,6 @@ static ngx_int_t
 ngx_http_ssi_include(ngx_http_request_t *r, ngx_http_ssi_ctx_t *ctx,
     ngx_str_t **params)
 {
-    u_char                      *dst, *src;
-    size_t                       len;
     ngx_int_t                    rc, key;
     ngx_str_t                   *uri, *file, *wait, *set, *stub, args;
     ngx_buf_t                   *b;
@@ -1930,24 +1915,12 @@ ngx_http_ssi_include(ngx_http_request_t *r, ngx_http_ssi_ctx_t *ctx,
         return rc;
     }
 
-    dst = uri->data;
-    src = uri->data;
-
-    ngx_unescape_uri(&dst, &src, uri->len, NGX_UNESCAPE_URI);
-
-    len = (uri->data + uri->len) - src;
-    if (len) {
-        dst = ngx_copy(dst, src, len);
-    }
-
-    uri->len = dst - uri->data;
-
-    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                   "ssi include: \"%V\"", uri);
-
     args.len = 0;
     args.data = NULL;
     flags = 0;
+
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "ssi include: \"%V\"", uri);
 
     if (ngx_http_parse_unsafe_uri(r, uri, &args, &flags) != NGX_OK) {
         return NGX_HTTP_SSI_ERROR;
@@ -1984,7 +1957,6 @@ ngx_http_ssi_include(ngx_http_request_t *r, ngx_http_ssi_ctx_t *ctx,
 
         if (bl[i].count++) {
 
-            out = NULL;
             ll = &out;
 
             for (tl = bl[i].bufs; tl; tl = tl->next) {
@@ -2138,12 +2110,10 @@ static ngx_int_t
 ngx_http_ssi_echo(ngx_http_request_t *r, ngx_http_ssi_ctx_t *ctx,
     ngx_str_t **params)
 {
-    u_char                     *p;
-    uintptr_t                   len;
     ngx_int_t                   key;
     ngx_uint_t                  i;
     ngx_buf_t                  *b;
-    ngx_str_t                  *var, *value, *enc, text;
+    ngx_str_t                  *var, *value, text;
     ngx_chain_t                *cl;
     ngx_http_variable_value_t  *vv;
 
@@ -2189,69 +2159,6 @@ ngx_http_ssi_echo(ngx_http_request_t *r, ngx_http_ssi_ctx_t *ctx,
         if (value->len == 0) {
             return NGX_OK;
         }
-    }
-
-    enc = params[NGX_HTTP_SSI_ECHO_ENCODING];
-
-    if (enc) {
-        if (enc->len == 4 && ngx_strncmp(enc->data, "none", 4) == 0) {
-
-            ctx->encoding = NGX_HTTP_SSI_NO_ENCODING;
-
-        } else if (enc->len == 3 && ngx_strncmp(enc->data, "url", 3) == 0) {
-
-            ctx->encoding = NGX_HTTP_SSI_URL_ENCODING;
-
-        } else if (enc->len == 6 && ngx_strncmp(enc->data, "entity", 6) == 0) {
-
-            ctx->encoding = NGX_HTTP_SSI_ENTITY_ENCODING;
-
-        } else {
-            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                          "unknown encoding \"%V\" in the \"echo\" command",
-                          enc);
-        }
-    }
-
-    switch (ctx->encoding) {
-
-    case NGX_HTTP_SSI_NO_ENCODING:
-        break;
-
-    case NGX_HTTP_SSI_URL_ENCODING:
-        len = 2 * ngx_escape_uri(NULL, value->data, value->len,
-                                 NGX_ESCAPE_HTML);
-
-        if (len) {
-            p = ngx_palloc(r->pool, value->len + len);
-            if (p == NULL) {
-                return NGX_HTTP_SSI_ERROR;
-            }
-
-            (void) ngx_escape_uri(p, value->data, value->len, NGX_ESCAPE_HTML);
-
-            value->len += len;
-            value->data = p;
-        }
-
-        break;
-
-    case NGX_HTTP_SSI_ENTITY_ENCODING:
-        len = ngx_escape_html(NULL, value->data, value->len);
-
-        if (len) {
-            p = ngx_palloc(r->pool, value->len + len);
-            if (p == NULL) {
-                return NGX_HTTP_SSI_ERROR;
-            }
-
-            (void) ngx_escape_html(p, value->data, value->len);
-
-            value->len += len;
-            value->data = p;
-        }
-
-        break;
     }
 
     b = ngx_calloc_buf(r->pool);
@@ -2657,16 +2564,15 @@ ngx_http_ssi_date_gmt_local_variable(ngx_http_request_t *r,
     char                 buf[NGX_HTTP_SSI_DATE_LEN];
 
     v->valid = 1;
-    v->no_cacheable = 0;
+    v->no_cachable = 0;
     v->not_found = 0;
 
     tp = ngx_timeofday();
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_ssi_filter_module);
 
-    if (ctx == NULL
-        || (ctx->timefmt.len == sizeof("%s") - 1
-            && ctx->timefmt.data[0] == '%' && ctx->timefmt.data[1] == 's'))
+    if (ctx->timefmt.len == sizeof("%s") - 1
+        && ctx->timefmt.data[0] == '%' && ctx->timefmt.data[1] == 's')
     {
         v->data = ngx_palloc(r->pool, NGX_TIME_T_LEN);
         if (v->data == NULL) {
